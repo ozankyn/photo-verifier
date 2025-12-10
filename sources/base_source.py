@@ -321,6 +321,11 @@ class BaseSource:
         result.sort(key=lambda x: x['visit_date'] or '', reverse=True)
         
         print(f"DEBUG grouped visits count: {len(result)}")
+        # Doğrulama bilgilerini ekle
+        for group in result:
+            for photo in group['photos']:
+                verification = self.get_verification_status(photo['PhotoId'], photo_type)
+                photo['verification'] = verification
         return result
     
     def get_all_visit_photos(self, visit_id: int) -> Dict:

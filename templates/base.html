@@ -96,7 +96,40 @@
             display: inline-block;
             margin-right: 8px;
         }
-        
+
+        /* Verified states */
+        .photo-card.verified-approved {
+            border: 2px solid #28a745;
+        }
+
+        .photo-card.verified-rejected {
+            border: 2px solid #dc3545;
+        }
+
+        .photo-card.verified-suspicious {
+            border: 2px solid #ffc107;
+        }
+
+        .verify-btn.active {
+            transform: scale(1.05);
+            font-weight: bold;
+        }
+
+        .verify-btn.approve.active {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .verify-btn.reject.active {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .verify-btn.suspicious.active {
+            background: #ffc107;
+            color: #000;
+        }
+                
         /* Main Content */
         .main-content {
             margin-left: var(--sidebar-width);

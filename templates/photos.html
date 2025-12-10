@@ -77,11 +77,11 @@
             
             <div class="photo-grid">
                 {% for photo in group.photos %}
-                <div class="photo-card">
+                <div class="photo-card {% if photo.verification %}verified-{{ photo.verification.status }}{% endif %}">
                     <img src="/image/{{ project }}/{{ photo.ImageUrl }}" 
-                         alt="Fotoğraf"
-                         onclick="openImageModal(this.src)"
-                         onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
+                        alt="Fotoğraf"
+                        onclick="openImageModal(this.src)"
+                        onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
                     <div class="info">
                         <div><strong>#{{ photo.PhotoId }}</strong></div>
                         <div>{{ photo.PhotoDate | datetime }}</div>
@@ -91,25 +91,39 @@
                         {% if photo.ProductQuantity %}
                         <div>🍺 {{ photo.ProductQuantity }} ürün</div>
                         {% endif %}
+                        {% if photo.verification %}
+                        <div class="mt-1 small">
+                            {% if photo.verification.status == 'approved' %}
+                            <span class="badge bg-success">✓ Doğru</span>
+                            {% elif photo.verification.status == 'rejected' %}
+                            <span class="badge bg-danger">✗ Yanlış</span>
+                            {% elif photo.verification.status == 'suspicious' %}
+                            <span class="badge bg-warning">? Şüpheli</span>
+                            {% endif %}
+                        </div>
+                        {% if photo.verification.note %}
+                        <div class="text-muted small fst-italic mt-1">{{ photo.verification.note }}</div>
+                        {% endif %}
+                        {% endif %}
                     </div>
                     <div class="p-2 border-top">
                         <textarea class="form-control form-control-sm mb-2" 
                             id="note-{{ photo.PhotoId }}" 
                             placeholder="Yorum (opsiyonel)..." 
-                            rows="1"></textarea>
+                            rows="1">{{ photo.verification.note if photo.verification else '' }}</textarea>
                         <div class="d-flex gap-1">
-                            <button class="verify-btn approve flex-grow-1" 
+                            <button class="verify-btn approve flex-grow-1 {% if photo.verification and photo.verification.status == 'approved' %}active{% endif %}" 
                                 onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'approved')">
                             ✓ Doğru
-                        </button>
-                        <button class="verify-btn reject flex-grow-1"
-                            onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
-                        ✗ Yanlış
-                        </button>
-                        <button class="verify-btn suspicious flex-grow-1"
-                            onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
-                        ? Şüpheli
-                        </button>
+                            </button>
+                            <button class="verify-btn reject flex-grow-1 {% if photo.verification and photo.verification.status == 'rejected' %}active{% endif %}"
+                                    onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
+                                ✗ Yanlış
+                            </button>
+                            <button class="verify-btn suspicious flex-grow-1 {% if photo.verification and photo.verification.status == 'suspicious' %}active{% endif %}"
+                                    onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
+                                ? Şüpheli
+                            </button>
                         </div>
                     </div>
                 </div>
