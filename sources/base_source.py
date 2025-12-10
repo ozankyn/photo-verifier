@@ -39,7 +39,7 @@ class BaseSource:
             database=self.db_config['database']
         )
 
-        def _fix_turkish_chars(self, text: str) -> str:
+    def _fix_turkish_chars(self, text: str) -> str:
         """Bozuk Türkçe karakterleri düzeltir."""
         if not text:
             return text
