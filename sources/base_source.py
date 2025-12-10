@@ -566,3 +566,60 @@ class BaseSource:
         
         conn.close()
         return duplicates
+
+    def get_personnel_list(self, start_date: str = None, end_date: str = None) -> List[Dict]:
+        """Aktif personel listesini getirir."""
+        user_join = ""
+        if 'user_role_id' in self.filters:
+            user_join = f"INNER JOIN UserRoles ur ON u.Id = ur.UserId AND ur.RoleId = {self.filters['user_role_id']} AND ur.IsDeleted = 0"
+        
+        date_filter = ""
+        params = ()
+        if start_date and end_date:
+            date_filter = "AND CAST(v.CreatedDate AS DATE) BETWEEN %s AND %s"
+            params = (start_date, end_date)
+        
+        query = f"""
+        SELECT DISTINCT u.Id, u.Name + ' ' + u.Surname as FullName
+        FROM Users u
+        INNER JOIN TeammateVisit v ON u.Id = v.UserId
+        {user_join}
+        WHERE u.IsDeleted = 0 {date_filter}
+        ORDER BY FullName
+        """
+        
+        conn = self._get_connection()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+        return results
+
+    def get_customer_list(self, start_date: str = None, end_date: str = None) -> List[Dict]:
+        """Aktif mağaza listesini getirir."""
+        user_join = ""
+        if 'user_role_id' in self.filters:
+            user_join = f"INNER JOIN UserRoles ur ON v.UserId = ur.UserId AND ur.RoleId = {self.filters['user_role_id']} AND ur.IsDeleted = 0"
+        
+        date_filter = ""
+        params = ()
+        if start_date and end_date:
+            date_filter = "AND CAST(v.CreatedDate AS DATE) BETWEEN %s AND %s"
+            params = (start_date, end_date)
+        
+        query = f"""
+        SELECT DISTINCT c.CustomerCode, c.CustomerName
+        FROM Customers c
+        INNER JOIN TeammateRoute r ON c.CustomerCode = r.CustomerId
+        INNER JOIN TeammateVisit v ON r.Id = v.TeammateRouteId
+        {user_join}
+        WHERE c.IsDeleted = 0 {date_filter}
+        ORDER BY c.CustomerName
+        """
+        
+        conn = self._get_connection()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+        return results    
