@@ -124,7 +124,13 @@ class BaseSource:
     def get_exhibition_photos(self, start_date: str, end_date: str) -> List[Dict]:
         """Teşhir fotoğraflarını getirir."""
         user_filter = self._build_user_filter()
-        user_join = "LEFT JOIN UserRoles ur ON v.UserId = ur.UserId" if user_filter else ""
+        user_join = ""
+        
+        if 'user_role_id' in self.filters:
+            user_join = "INNER JOIN UserRoles ur ON v.UserId = ur.UserId AND ur.RoleId = {} AND ur.IsDeleted = 0".format(self.filters['user_role_id'])
+        
+        # Type kolonu bazı projelerde yok
+        type_column = "e.Type as ExhibitionType," if self.config.get('has_exhibition_type', True) else "NULL as ExhibitionType,"
         
         query = f"""
         SELECT 
@@ -132,9 +138,8 @@ class BaseSource:
             e.TeammateVisitId as VisitId,
             e.ImagePath,
             e.CreatedDate as PhotoDate,
-            e.Type as ExhibitionType,
+            {type_column}
             e.PackageQuantity,
-            e.ProductQuantity,
             v.UserId,
             v.StartDate as VisitStartDate,
             v.FinishDate as VisitEndDate,
@@ -152,7 +157,6 @@ class BaseSource:
         WHERE e.ImagePath IS NOT NULL
           AND e.IsDeleted = 0
           AND CAST(e.CreatedDate AS DATE) BETWEEN %s AND %s
-          {user_filter}
         ORDER BY e.CreatedDate DESC
         """
         

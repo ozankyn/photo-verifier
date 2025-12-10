@@ -43,10 +43,11 @@ PROJECTS = {
         'database': 'TeamGuerillaEfes',
         'image_path': r'D:\EfesData\Files\Image',
         'photo_tables': ['exhibition', 'planogram', 'visit'],
-        'color': '#f39c12',  # Turuncu
+        'color': '#f39c12',
         'icon': '🍻',
+        'has_exhibition_type': False,  # Type kolonu yok
         'filters': {
-            'user_role_id': 4,  # Sadece Merch pozisyonu
+            'user_role_id': 4,
         },
     },
 }
