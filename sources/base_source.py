@@ -37,7 +37,7 @@ class BaseSource:
             user=self.db_config['username'],
             password=self.db_config['password'],
             database=self.db_config['database'],
-            charset='UTF-8'
+            charset='CP1254'
         )
     
     def _init_verify_db(self):
