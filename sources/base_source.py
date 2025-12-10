@@ -36,9 +36,24 @@ class BaseSource:
             port=self.db_config.get('port', 1433),
             user=self.db_config['username'],
             password=self.db_config['password'],
-            database=self.db_config['database'],
-            charset='CP1254'
+            database=self.db_config['database']
         )
+
+        def _fix_turkish_chars(self, text: str) -> str:
+        """Bozuk Türkçe karakterleri düzeltir."""
+        if not text:
+            return text
+        replacements = {
+            'ý': 'ı',
+            'Ý': 'İ',
+            'þ': 'ş',
+            'Þ': 'Ş',
+            'ð': 'ğ',
+            'Ð': 'Ğ',
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return text
     
     def _init_verify_db(self):
         """Doğrulama veritabanını oluşturur."""
@@ -593,6 +608,10 @@ class BaseSource:
         cursor.execute(query, params)
         results = cursor.fetchall()
         conn.close()
+        # Türkçe karakter düzeltmesi
+        for r in results:
+            if r.get('FullName'):
+                r['FullName'] = self._fix_turkish_chars(r['FullName'])
         return results
 
     def get_customer_list(self, start_date: str = None, end_date: str = None) -> List[Dict]:
