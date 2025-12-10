@@ -113,16 +113,16 @@
                             rows="1">{{ photo.verification.note if photo.verification else '' }}</textarea>
                         <div class="d-flex gap-1">
                             <button class="verify-btn approve flex-grow-1 {% if photo.verification and photo.verification.status == 'approved' %}active{% endif %}" 
-                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'approved')">
-                            ✓ Doğru
+                                    onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'approved')">
+                                ✓
                             </button>
                             <button class="verify-btn reject flex-grow-1 {% if photo.verification and photo.verification.status == 'rejected' %}active{% endif %}"
                                     onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
-                                ✗ Yanlış
+                                ✗
                             </button>
                             <button class="verify-btn suspicious flex-grow-1 {% if photo.verification and photo.verification.status == 'suspicious' %}active{% endif %}"
                                     onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
-                                ? Şüpheli
+                                ?
                             </button>
                         </div>
                     </div>
