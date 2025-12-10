@@ -92,19 +92,25 @@
                         <div>🍺 {{ photo.ProductQuantity }} ürün</div>
                         {% endif %}
                     </div>
-                    <div class="p-2 border-top d-flex gap-1">
-                        <button class="verify-btn approve flex-grow-1" 
+                    <div class="p-2 border-top">
+                        <textarea class="form-control form-control-sm mb-2" 
+                            id="note-{{ photo.PhotoId }}" 
+                            placeholder="Yorum (opsiyonel)..." 
+                            rows="1"></textarea>
+                        <div class="d-flex gap-1">
+                            <button class="verify-btn approve flex-grow-1" 
                                 onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'approved')">
-                            ✓
+                            ✓ Doğru
                         </button>
                         <button class="verify-btn reject flex-grow-1"
-                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
-                            ✗
+                            onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
+                        ✗ Yanlış
                         </button>
                         <button class="verify-btn suspicious flex-grow-1"
-                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
-                            ?
+                            onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
+                        ? Şüpheli
                         </button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}

@@ -296,7 +296,8 @@
         
         // Verification
         async function verifyPhoto(project, photoId, photoType, status) {
-            const note = prompt('Not eklemek ister misiniz? (Opsiyonel)');
+            const noteEl = document.getElementById('note-' + photoId);
+            const note = noteEl ? noteEl.value : '';
             
             try {
                 const response = await fetch(`/api/${project}/verify`, {
