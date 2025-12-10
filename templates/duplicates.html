@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project_name }} - Duplicate Tespiti{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">🔍 Duplicate Tespiti</h2>
+            <p class="text-muted mb-0">{{ project_name }} - Aynı fotoğrafın farklı ziyaretlerde kullanımı</p>
+        </div>
+        <button class="btn btn-primary" onclick="runDuplicateCheck()">
+            <i class="bi bi-arrow-clockwise"></i> Yeniden Tara
+        </button>
+    </div>
+    
+    {% if duplicate_groups %}
+    <div class="alert alert-warning">
+        <strong>⚠️ {{ duplicate_groups | length }} duplicate grup tespit edildi!</strong>
+        Aşağıda aynı fotoğrafın birden fazla ziyarette kullanıldığı durumlar listelenmektedir.
+    </div>
+    
+    {% for group in duplicate_groups %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Duplicate Grup #{{ loop.index }}
+                </h5>
+                <span class="badge bg-light text-dark">{{ group.count }} fotoğraf</span>
+            </div>
+            <small>Hash: {{ group.hash[:32] }}...</small>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for file in group.files %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <img src="/image/{{ project }}/{{ file.image_url }}" 
+                             class="card-img-top"
+                             style="height: 200px; object-fit: cover;"
+                             onclick="openImageModal(this.src)"
+                             onerror="this.src='https://via.placeholder.com/300x200?text=Yüklenemedi'">
+                        <div class="card-body">
+                            <p class="mb-1"><strong>Fotoğraf ID:</strong> {{ file.photo_id }}</p>
+                            <p class="mb-1"><strong>Ziyaret ID:</strong> {{ file.visit_id }}</p>
+                            <p class="mb-1"><strong>Tür:</strong> {{ file.photo_type }}</p>
+                            <a href="/{{ project }}/visit/{{ file.visit_id }}" class="btn btn-sm btn-outline-primary mt-2">
+                                Ziyareti Gör
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex gap-2">
+                <button class="btn btn-success btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'valid')">
+                    ✓ Geçerli (Farklı açılar)
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'fake')">
+                    ✗ Sahte Kayıt
+                </button>
+                <button class="btn btn-warning btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'review')">
+                    ? İnceleme Gerekli
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+            <h4 class="mt-3">Duplicate Bulunamadı</h4>
+            <p class="text-muted">
+                Henüz hash taraması yapılmamış veya duplicate tespit edilmemiş.
+                <br>
+                Hash taraması için önce fotoğrafların işlenmesi gerekiyor.
+            </p>
+            <button class="btn btn-primary mt-3" onclick="runDuplicateCheck()">
+                <i class="bi bi-play-circle"></i> Hash Taraması Başlat
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+function runDuplicateCheck() {
+    alert('Hash taraması başlatılıyor... Bu işlem biraz zaman alabilir.');
+    // TODO: Backend'de hash tarama endpoint'i eklenecek
+}
+
+function resolveDuplicate(groupId, resolution) {
+    const note = prompt('Not eklemek ister misiniz?');
+    alert(`Grup #${groupId} "${resolution}" olarak işaretlendi.`);
+    // TODO: Backend'e kaydet
+}
+</script>
+{% endblock %}
+{% endblock %}

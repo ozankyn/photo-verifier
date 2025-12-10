@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project_name }} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">{{ projects[project].icon }} {{ project_name }}</h2>
+            <p class="text-muted mb-0">Son 7 günün özeti</p>
+        </div>
+        <div>
+            <span class="badge bg-success">Aktif</span>
+        </div>
+    </div>
+    
+    <!-- İstatistik Kartları -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon" style="background: rgba(52, 152, 219, 0.1); color: #3498db;">
+                        📦
+                    </div>
+                    <div>
+                        <div class="value">{{ stats.exhibition_count | default(0) }}</div>
+                        <div class="label">Teşhir Fotoğrafı</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon" style="background: rgba(155, 89, 182, 0.1); color: #9b59b6;">
+                        📊
+                    </div>
+                    <div>
+                        <div class="value">{{ stats.planogram_count | default(0) }}</div>
+                        <div class="label">Planogram Fotoğrafı</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71;">
+                        🏪
+                    </div>
+                    <div>
+                        <div class="value">{{ stats.unique_visits | default(0) }}</div>
+                        <div class="label">Benzersiz Ziyaret</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon" style="background: rgba(241, 196, 15, 0.1); color: #f1c40f;">
+                        👥
+                    </div>
+                    <div>
+                        <div class="value">{{ stats.active_personnel | default(0) }}</div>
+                        <div class="label">Aktif Personel</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hızlı Erişim -->
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">📦 Teşhir Fotoğrafları</h5>
+                    <p class="card-text text-muted">Ürün teşhir fotoğraflarını görüntüle ve doğrula.</p>
+                    <a href="/{{ project }}/photos?type=exhibition" class="btn btn-primary">
+                        Görüntüle <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">📊 Planogram Fotoğrafları</h5>
+                    <p class="card-text text-muted">Planogram uygunluk fotoğraflarını kontrol et.</p>
+                    <a href="/{{ project }}/photos?type=planogram" class="btn btn-primary">
+                        Görüntüle <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">🔍 Duplicate Tespiti</h5>
+                    <p class="card-text text-muted">Aynı fotoğrafın farklı ziyaretlerde kullanılmasını tespit et.</p>
+                    <a href="/{{ project }}/duplicates" class="btn btn-warning">
+                        Kontrol Et <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if stats.error %}
+    <div class="alert alert-danger mt-4">
+        <strong>Hata:</strong> {{ stats.error }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Doğrulama - {{ project.display_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('project_dashboard', project_key=project_key) }}">{{ project.display_name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('project_photos', project_key=project_key) }}">Fotoğraflar</a>
+            </li>
+            <li class="breadcrumb-item active">Doğrulama</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <!-- Photo Column -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body text-center p-4">
+                    {% if photo.WebPath %}
+                        <img src="{{ photo.WebPath }}" alt="Fotoğraf" class="photo-viewer img-fluid"
+                             onerror="this.src='/static/img/no-image.png'"
+                             style="cursor: zoom-in;"
+                             onclick="openFullscreen(this)">
+                        <p class="text-muted mt-2 small">
+                            <i class="bi bi-zoom-in me-1"></i>Büyütmek için tıklayın
+                        </p>
+                    {% else %}
+                        <div class="d-flex flex-column align-items-center justify-content-center py-5">
+                            <i class="bi bi-image text-muted" style="font-size: 5rem;"></i>
+                            <p class="text-muted mt-3">Fotoğraf yüklenemedi</p>
+                            <small class="text-muted">{{ photo.ImagePath }}</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Verification Buttons -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>Doğrulama</h5>
+                </div>
+                <div class="card-body">
+                    {% if photo.verification %}
+                        <div class="alert alert-{% if photo.verification.status == 'approved' %}success{% elif photo.verification.status == 'rejected' %}danger{% else %}warning{% endif %} mb-3">
+                            <strong>Mevcut Durum:</strong>
+                            {% if photo.verification.status == 'approved' %}
+                                <i class="bi bi-check-circle me-1"></i>Onaylandı
+                            {% elif photo.verification.status == 'rejected' %}
+                                <i class="bi bi-x-circle me-1"></i>Reddedildi
+                            {% else %}
+                                <i class="bi bi-exclamation-triangle me-1"></i>Şüpheli
+                            {% endif %}
+                            {% if photo.verification.note %}
+                                <br><small>Not: {{ photo.verification.note }}</small>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <button class="btn btn-success verify-btn w-100" 
+                                    onclick="verify('approved')">
+                                <i class="bi bi-check-circle me-2"></i>Onayla
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-danger verify-btn w-100"
+                                    onclick="verify('rejected')">
+                                <i class="bi bi-x-circle me-2"></i>Reddet
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-warning verify-btn w-100"
+                                    onclick="verify('suspicious')">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Şüpheli
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Not (Opsiyonel)</label>
+                        <textarea id="verificationNote" class="form-control" rows="2" 
+                                  placeholder="Doğrulama ile ilgili not ekleyin...">{{ photo.verification.note if photo.verification else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info Column -->
+        <div class="col-lg-4">
+            <!-- Visit Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Ziyaret Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted" style="width: 40%;">Fotoğraf ID</td>
+                            <td class="fw-bold">{{ photo.PhotoId }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Ziyaret ID</td>
+                            <td class="fw-bold">{{ photo.VisitId }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Tablo</td>
+                            <td><span class="badge bg-secondary">{{ table }}</span></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Tarih</td>
+                            <td class="fw-bold">
+                                {{ photo.PhotoDate.strftime('%d.%m.%Y %H:%M') if photo.PhotoDate else '-' }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Customer Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-shop me-2"></i>Müşteri Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted" style="width: 40%;">Müşteri</td>
+                            <td class="fw-bold">{{ photo.CustomerName | default('-') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Müşteri Kodu</td>
+                            <td>{{ photo.CustomerCode | default('-') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Personel</td>
+                            <td class="fw-bold">{{ photo.Personnel | default('-') }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Photo Details -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-camera me-2"></i>Fotoğraf Detayları</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        {% if photo.ExhibitionType is defined %}
+                        <tr>
+                            <td class="text-muted" style="width: 40%;">Teşhir Tipi</td>
+                            <td>{{ photo.ExhibitionType }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if photo.PackageQuantity %}
+                        <tr>
+                            <td class="text-muted">Koli Sayısı</td>
+                            <td class="fw-bold">{{ photo.PackageQuantity }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if photo.ProductQuantity %}
+                        <tr>
+                            <td class="text-muted">Ürün Sayısı</td>
+                            <td class="fw-bold">{{ photo.ProductQuantity }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if photo.LidQuantity %}
+                        <tr>
+                            <td class="text-muted">Kapak Sayısı</td>
+                            <td class="fw-bold">{{ photo.LidQuantity }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            <!-- File Path -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-folder me-2"></i>Dosya Yolu</h5>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted text-break">{{ photo.ImagePath }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Modal -->
+<div class="modal fade" id="fullscreenModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Kapat
+                </button>
+            </div>
+            <div class="modal-body d-flex align-items-center justify-content-center">
+                <img id="fullscreenImage" src="" alt="Tam Ekran" style="max-width: 100%; max-height: 90vh;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Doğrulama fonksiyonu
+    function verify(status) {
+        const note = document.getElementById('verificationNote').value;
+        
+        verifyPhoto(
+            '{{ project_key }}',
+            '{{ table }}',
+            {{ photo.PhotoId }},
+            {{ photo.VisitId }},
+            status,
+            note
+        );
+    }
+    
+    // Tam ekran görüntüleme
+    function openFullscreen(img) {
+        document.getElementById('fullscreenImage').src = img.src;
+        new bootstrap.Modal(document.getElementById('fullscreenModal')).show();
+    }
+</script>
+{% endblock %}

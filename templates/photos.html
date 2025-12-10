@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project_name }} - Fotoğraflar{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                {% if photo_type == 'exhibition' %}📦 Teşhir{% endif %}
+                {% if photo_type == 'planogram' %}📊 Planogram{% endif %}
+                {% if photo_type == 'visit' %}📸 Ziyaret{% endif %}
+                Fotoğrafları
+            </h2>
+            <p class="text-muted mb-0">{{ project_name }}</p>
+        </div>
+    </div>
+    
+    <!-- Filtreler -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label">Fotoğraf Türü</label>
+                    <select name="type" class="form-select">
+                        {% for pt in photo_types %}
+                        <option value="{{ pt }}" {% if pt == photo_type %}selected{% endif %}>
+                            {% if pt == 'exhibition' %}📦 Teşhir{% endif %}
+                            {% if pt == 'planogram' %}📊 Planogram{% endif %}
+                            {% if pt == 'visit' %}📸 Ziyaret{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Başlangıç</label>
+                    <input type="date" name="from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Bitiş</label>
+                    <input type="date" name="to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Filtrele
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Fotoğraf Grupları (Ziyarete göre) -->
+    {% if photos_grouped %}
+        {% for group in photos_grouped %}
+        <div class="visit-group">
+            <div class="visit-group-header">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="bi bi-shop"></i> {{ group.customer_name }}
+                        <small class="text-muted">({{ group.customer_code }})</small>
+                    </h5>
+                    <div class="text-muted">
+                        <i class="bi bi-person"></i> {{ group.personnel }}
+                        &nbsp;|&nbsp;
+                        <i class="bi bi-calendar"></i> {{ group.visit_date | datetime }}
+                        &nbsp;|&nbsp;
+                        <i class="bi bi-images"></i> {{ group.photos | length }} fotoğraf
+                    </div>
+                </div>
+                <div>
+                    <a href="/{{ project }}/visit/{{ group.visit_id }}" class="btn btn-sm btn-outline-primary">
+                        Ziyaret Detayı <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="photo-grid">
+                {% for photo in group.photos %}
+                <div class="photo-card">
+                    <img src="/image/{{ project }}/{{ photo.ImageUrl }}" 
+                         alt="Fotoğraf"
+                         onclick="openImageModal(this.src)"
+                         onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
+                    <div class="info">
+                        <div><strong>#{{ photo.PhotoId }}</strong></div>
+                        <div>{{ photo.PhotoDate | datetime }}</div>
+                        {% if photo.PackageQuantity %}
+                        <div>📦 {{ photo.PackageQuantity }} koli</div>
+                        {% endif %}
+                        {% if photo.ProductQuantity %}
+                        <div>🍺 {{ photo.ProductQuantity }} ürün</div>
+                        {% endif %}
+                    </div>
+                    <div class="p-2 border-top d-flex gap-1">
+                        <button class="verify-btn approve flex-grow-1" 
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'approved')">
+                            ✓
+                        </button>
+                        <button class="verify-btn reject flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'rejected')">
+                            ✗
+                        </button>
+                        <button class="verify-btn suspicious flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, '{{ photo_type }}', 'suspicious')">
+                            ?
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 
+            Bu tarih aralığında fotoğraf bulunamadı.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

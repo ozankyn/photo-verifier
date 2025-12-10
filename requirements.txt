@@ -1,0 +1,11 @@
+# Web Framework
+flask>=3.0.0
+
+# Database
+pymssql>=2.2.11
+
+# Utilities
+python-dateutil>=2.8.2
+
+# Production Server
+waitress>=3.0.0

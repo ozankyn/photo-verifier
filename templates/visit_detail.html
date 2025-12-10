@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project_name }} - Ziyaret Detayı{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="/{{ project }}">{{ project_name }}</a></li>
+                    <li class="breadcrumb-item"><a href="/{{ project }}/photos">Fotoğraflar</a></li>
+                    <li class="breadcrumb-item active">Ziyaret #{{ visit.visit_id }}</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">Ziyaret Detayı</h2>
+        </div>
+        <a href="/{{ project }}/photos" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Geri
+        </a>
+    </div>
+    
+    {% if visit.info %}
+    <!-- Ziyaret Bilgileri -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Müşteri:</strong><br>
+                    {{ visit.info.CustomerName }}<br>
+                    <small class="text-muted">{{ visit.info.CustomerCode }}</small>
+                </div>
+                <div class="col-md-3">
+                    <strong>Personel:</strong><br>
+                    {{ visit.info.Personnel }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Başlangıç:</strong><br>
+                    {{ visit.info.StartDate | datetime }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Bitiş:</strong><br>
+                    {{ visit.info.FinishDate | datetime if visit.info.FinishDate else '-' }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Ziyaret Fotoğrafı -->
+    {% if visit.visit %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">📸 Ziyaret Fotoğrafı</h5>
+        </div>
+        <div class="card-body">
+            <div class="photo-grid">
+                {% for photo in visit.visit %}
+                <div class="photo-card">
+                    <img src="/image/{{ project }}/{{ photo.ImageUrl }}" 
+                         onclick="openImageModal(this.src)"
+                         onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Teşhir Fotoğrafları -->
+    {% if visit.exhibition %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">📦 Teşhir Fotoğrafları ({{ visit.exhibition | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="photo-grid">
+                {% for photo in visit.exhibition %}
+                <div class="photo-card">
+                    <img src="/image/{{ project }}/{{ photo.ImageUrl }}" 
+                         onclick="openImageModal(this.src)"
+                         onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
+                    <div class="info">
+                        <div><strong>#{{ photo.PhotoId }}</strong></div>
+                        <div>{{ photo.CreatedDate | datetime }}</div>
+                        {% if photo.PackageQuantity %}
+                        <div>📦 {{ photo.PackageQuantity }} koli</div>
+                        {% endif %}
+                    </div>
+                    <div class="p-2 border-top d-flex gap-1">
+                        <button class="verify-btn approve flex-grow-1" 
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'exhibition', 'approved')">
+                            ✓
+                        </button>
+                        <button class="verify-btn reject flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'exhibition', 'rejected')">
+                            ✗
+                        </button>
+                        <button class="verify-btn suspicious flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'exhibition', 'suspicious')">
+                            ?
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Planogram Fotoğrafları -->
+    {% if visit.planogram %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">📊 Planogram Fotoğrafları ({{ visit.planogram | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="photo-grid">
+                {% for photo in visit.planogram %}
+                <div class="photo-card">
+                    <img src="/image/{{ project }}/{{ photo.ImageUrl }}" 
+                         onclick="openImageModal(this.src)"
+                         onerror="this.src='https://via.placeholder.com/200x150?text=Yüklenemedi'">
+                    <div class="info">
+                        <div><strong>#{{ photo.PhotoId }}</strong></div>
+                        <div>{{ photo.CreatedDate | datetime }}</div>
+                        {% if photo.LidQuantity %}
+                        <div>🏷️ {{ photo.LidQuantity }} kapak</div>
+                        {% endif %}
+                    </div>
+                    <div class="p-2 border-top d-flex gap-1">
+                        <button class="verify-btn approve flex-grow-1" 
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'planogram', 'approved')">
+                            ✓
+                        </button>
+                        <button class="verify-btn reject flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'planogram', 'rejected')">
+                            ✗
+                        </button>
+                        <button class="verify-btn suspicious flex-grow-1"
+                                onclick="verifyPhoto('{{ project }}', {{ photo.PhotoId }}, 'planogram', 'suspicious')">
+                            ?
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if not visit.visit and not visit.exhibition and not visit.planogram %}
+    <div class="alert alert-warning">
+        Bu ziyarete ait fotoğraf bulunamadı.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h4>📸 Photo Verifier</h4>
+        <small>Fotoğraf Doğrulama Sistemi</small>
+    </div>
+    
+    <!-- Projeler -->
+    <div class="nav-section">
+        <div class="nav-section-title">Projeler</div>
+        <nav class="nav flex-column">
+            {% for key, proj in projects.items() %}
+            <a class="nav-link {% if project == key %}active{% endif %}" 
+               href="/{{ key }}"
+               style="{% if project == key %}--project-color: {{ proj.color }};{% endif %}">
+                <span class="icon">{{ proj.icon }}</span>
+                <span class="project-indicator" style="background: {{ proj.color }};"></span>
+                {{ proj.name }}
+            </a>
+            {% endfor %}
+        </nav>
+    </div>
+    
+    <!-- Menü -->
+    <div class="nav-section">
+        <div class="nav-section-title">{{ projects[project].name if project else 'Menü' }}</div>
+        <nav class="nav flex-column">
+            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
+               href="/{{ project }}">
+                <span class="icon"><i class="bi bi-speedometer2"></i></span>
+                Dashboard
+            </a>
+            <a class="nav-link {% if request.endpoint == 'photos' %}active{% endif %}" 
+               href="/{{ project }}/photos">
+                <span class="icon"><i class="bi bi-images"></i></span>
+                Fotoğraflar
+            </a>
+            <a class="nav-link {% if request.endpoint == 'duplicates' %}active{% endif %}" 
+               href="/{{ project }}/duplicates">
+                <span class="icon"><i class="bi bi-files"></i></span>
+                Duplicate Tespiti
+            </a>
+            <a class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}" 
+               href="/{{ project }}/reports">
+                <span class="icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
+                Raporlar
+            </a>
+        </nav>
+    </div>
+    
+    <!-- Fotoğraf Türleri -->
+    {% if project and projects[project].photo_tables %}
+    <div class="nav-section">
+        <div class="nav-section-title">Fotoğraf Türleri</div>
+        <nav class="nav flex-column">
+            {% if 'exhibition' in projects[project].photo_tables %}
+            <a class="nav-link" href="/{{ project }}/photos?type=exhibition">
+                <span class="icon">📦</span>
+                Teşhir
+            </a>
+            {% endif %}
+            {% if 'planogram' in projects[project].photo_tables %}
+            <a class="nav-link" href="/{{ project }}/photos?type=planogram">
+                <span class="icon">📊</span>
+                Planogram
+            </a>
+            {% endif %}
+            {% if 'visit' in projects[project].photo_tables %}
+            <a class="nav-link" href="/{{ project }}/photos?type=visit">
+                <span class="icon">📸</span>
+                Ziyaret
+            </a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+    
+    <!-- Footer -->
+    <div class="nav-section" style="margin-top: auto; padding: 1rem 1.5rem;">
+        <small style="color: rgba(255,255,255,0.3);">
+            Team Guerilla © 2024
+        </small>
+    </div>
+</div>
