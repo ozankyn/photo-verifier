@@ -146,7 +146,7 @@ class BaseSource:
         FROM TeammateVisitExhibition e
         INNER JOIN TeammateVisit v ON e.TeammateVisitId = v.Id
         INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
-        INNER JOIN Customers c ON r.CustomerId = c.Id
+        INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
         INNER JOIN Users u ON v.UserId = u.Id
         {user_join}
         WHERE e.ImagePath IS NOT NULL
@@ -201,7 +201,7 @@ class BaseSource:
         FROM TeammateVisitPlanogram p
         INNER JOIN TeammateVisit v ON p.TeammateVisitId = v.Id
         INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
-        INNER JOIN Customers c ON r.CustomerId = c.Id
+        INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
         INNER JOIN Users u ON v.UserId = u.Id
         {user_join}
         WHERE p.ImagePath IS NOT NULL
@@ -250,7 +250,7 @@ class BaseSource:
             'visit' as PhotoType
         FROM TeammateVisit v
         INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
-        INNER JOIN Customers c ON r.CustomerId = c.Id
+        INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
         INNER JOIN Users u ON v.UserId = u.Id
         {user_join}
         WHERE v.ImagePath IS NOT NULL
@@ -345,7 +345,7 @@ class BaseSource:
                 u.Name + ' ' + u.Surname as Personnel
             FROM TeammateVisit v
             INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
-            INNER JOIN Customers c ON r.CustomerId = c.Id
+            INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
             INNER JOIN Users u ON v.UserId = u.Id
             WHERE v.Id = %s
         """, (visit_id,))
