@@ -136,9 +136,8 @@ class BaseSource:
     
     # ==================== FOTOğRAF SORGULARI ====================
     
-    def get_exhibition_photos(self, start_date: str, end_date: str) -> List[Dict]:
+    def get_exhibition_photos(self, start_date: str, end_date: str, user_id: int = None, customer_code: str = None) -> List[Dict]:
         """Teşhir fotoğraflarını getirir."""
-        user_filter = self._build_user_filter()
         user_join = ""
         
         if 'user_role_id' in self.filters:
@@ -146,6 +145,13 @@ class BaseSource:
         
         # Type kolonu bazı projelerde yok
         type_column = "e.Type as ExhibitionType," if self.config.get('has_exhibition_type', True) else "NULL as ExhibitionType,"
+        
+        # Ekstra filtreler
+        extra_filters = ""
+        if user_id:
+            extra_filters += f" AND v.UserId = {user_id}"
+        if customer_code:
+            extra_filters += f" AND r.CustomerId = '{customer_code}'"
         
         query = f"""
         SELECT 
@@ -172,10 +178,11 @@ class BaseSource:
         WHERE e.ImagePath IS NOT NULL
           AND e.IsDeleted = 0
           AND CAST(e.CreatedDate AS DATE) BETWEEN %s AND %s
+          {extra_filters}
         ORDER BY e.CreatedDate DESC
         """
         
-        print(f"DEBUG get_exhibition_photos: {start_date} to {end_date}")
+        print(f"DEBUG get_exhibition_photos: {start_date} to {end_date}, user={user_id}, customer={customer_code}")
         
         try:
             conn = self._get_connection()
@@ -186,7 +193,6 @@ class BaseSource:
             
             print(f"DEBUG exhibition query returned: {len(results)} rows")
             
-            # Path'leri dönüştür
             for r in results:
                 r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
             
