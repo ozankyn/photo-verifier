@@ -613,7 +613,7 @@ class BaseSource:
         INNER JOIN TeammateRoute r ON c.CustomerCode = r.CustomerId
         INNER JOIN TeammateVisit v ON r.Id = v.TeammateRouteId
         {user_join}
-        WHERE c.IsDeleted = 0 {date_filter}
+        WHERE 1=1 {date_filter}
         ORDER BY c.CustomerName
         """
         
