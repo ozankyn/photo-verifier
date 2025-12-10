@@ -23,7 +23,7 @@
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label">Fotoğraf Türü</label>
-                    <select name="type" class="form-select">
+                    <select name="type" class="form-select form-select-sm">
                         {% for pt in photo_types %}
                         <option value="{{ pt }}" {% if pt == photo_type %}selected{% endif %}>
                             {% if pt == 'exhibition' %}📦 Teşhir{% endif %}
@@ -35,16 +35,37 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Başlangıç</label>
-                    <input type="date" name="from" class="form-control" value="{{ date_from }}">
+                    <input type="date" name="from" class="form-control form-control-sm" value="{{ date_from }}">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Bitiş</label>
-                    <input type="date" name="to" class="form-control" value="{{ date_to }}">
+                    <input type="date" name="to" class="form-control form-control-sm" value="{{ date_to }}">
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary">
+                    <label class="form-label">Personel</label>
+                    <select name="user_id" class="form-select form-select-sm">
+                        <option value="">Tümü</option>
+                        {% for p in personnel_list %}
+                        <option value="{{ p.Id }}" {% if user_id == p.Id %}selected{% endif %}>{{ p.FullName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Mağaza</label>
+                    <select name="customer_code" class="form-select form-select-sm">
+                        <option value="">Tümü</option>
+                        {% for c in customer_list %}
+                        <option value="{{ c.CustomerCode }}" {% if customer_code|string == c.CustomerCode|string %}selected{% endif %}>{{ c.CustomerName[:35] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
                         <i class="bi bi-search"></i> Filtrele
                     </button>
+                    <a href="/{{ project }}/photos?type={{ photo_type }}" class="btn btn-outline-secondary btn-sm">
+                        Temizle
+                    </a>
                 </div>
             </form>
         </div>

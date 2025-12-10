@@ -297,13 +297,13 @@ class BaseSource:
         
         return results
     
-    def get_photos_grouped(self, photo_type: str, start_date: str, end_date: str) -> List[Dict]:
+    def get_photos_grouped(self, photo_type: str, start_date: str, end_date: str, user_id: int = None, customer_code: str = None) -> List[Dict]:
         """Fotoğrafları ziyarete göre gruplandırarak getirir."""
-        print(f"DEBUG get_photos_grouped: type={photo_type}, from={start_date}, to={end_date}")
+        print(f"DEBUG get_photos_grouped: type={photo_type}, from={start_date}, to={end_date}, user={user_id}, customer={customer_code}")
         
         try:
             if photo_type == 'exhibition':
-                photos = self.get_exhibition_photos(start_date, end_date)
+                photos = self.get_exhibition_photos(start_date, end_date, user_id, customer_code)
             elif photo_type == 'planogram':
                 photos = self.get_planogram_photos(start_date, end_date)
             elif photo_type == 'visit':
@@ -341,12 +341,13 @@ class BaseSource:
         result = list(grouped.values())
         result.sort(key=lambda x: x['visit_date'] or '', reverse=True)
         
-        print(f"DEBUG grouped visits count: {len(result)}")
         # Doğrulama bilgilerini ekle
         for group in result:
             for photo in group['photos']:
                 verification = self.get_verification_status(photo['PhotoId'], photo_type)
                 photo['verification'] = verification
+        
+        print(f"DEBUG grouped visits count: {len(result)}")
         return result
     
     def get_all_visit_photos(self, visit_id: int) -> Dict:

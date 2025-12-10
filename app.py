@@ -59,10 +59,21 @@ def photos(project):
     photo_type = request.args.get('type', 'exhibition')
     date_from = request.args.get('from', (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    user_id = request.args.get('user_id', type=int)
+    customer_code = request.args.get('customer_code')
+    
+    # Personel ve mağaza listeleri (filtre seçenekleri için)
+    try:
+        personnel_list = source.get_personnel_list(date_from, date_to)
+        customer_list = source.get_customer_list(date_from, date_to)
+    except Exception as e:
+        print(f"Liste hatası: {e}")
+        personnel_list = []
+        customer_list = []
     
     # Fotoğrafları getir (ziyarete göre gruplu)
     try:
-        photos_grouped = source.get_photos_grouped(photo_type, date_from, date_to)
+        photos_grouped = source.get_photos_grouped(photo_type, date_from, date_to, user_id, customer_code)
     except Exception as e:
         photos_grouped = []
         print(f"Hata: {e}")
@@ -75,7 +86,11 @@ def photos(project):
                          photo_types=config.get('photo_tables', []),
                          photos_grouped=photos_grouped,
                          date_from=date_from,
-                         date_to=date_to)
+                         date_to=date_to,
+                         user_id=user_id,
+                         customer_code=customer_code,
+                         personnel_list=personnel_list,
+                         customer_list=customer_list)
 
 
 @app.route('/<project>/visit/<int:visit_id>')
