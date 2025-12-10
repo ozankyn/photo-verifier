@@ -203,10 +203,18 @@ class BaseSource:
             traceback.print_exc()
             return []
     
-    def get_planogram_photos(self, start_date: str, end_date: str) -> List[Dict]:
+    def get_planogram_photos(self, start_date: str, end_date: str, user_id: int = None, customer_code: str = None) -> List[Dict]:
         """Planogram fotoğraflarını getirir."""
-        user_filter = self._build_user_filter()
-        user_join = "LEFT JOIN UserRoles ur ON v.UserId = ur.UserId" if user_filter else ""
+        user_join = ""
+        if 'user_role_id' in self.filters:
+            user_join = "INNER JOIN UserRoles ur ON v.UserId = ur.UserId AND ur.RoleId = {} AND ur.IsDeleted = 0".format(self.filters['user_role_id'])
+        
+        # Ekstra filtreler
+        extra_filters = ""
+        if user_id:
+            extra_filters += f" AND v.UserId = {user_id}"
+        if customer_code:
+            extra_filters += f" AND r.CustomerId = '{customer_code}'"
         
         query = f"""
         SELECT 
@@ -214,7 +222,6 @@ class BaseSource:
             p.TeammateVisitId as VisitId,
             p.ImagePath,
             p.CreatedDate as PhotoDate,
-            p.LidQuantity,
             p.BeforeImagePath,
             v.UserId,
             v.StartDate as VisitStartDate,
@@ -232,25 +239,30 @@ class BaseSource:
         WHERE p.ImagePath IS NOT NULL
           AND p.IsDeleted = 0
           AND CAST(p.CreatedDate AS DATE) BETWEEN %s AND %s
-          {user_filter}
+          {extra_filters}
         ORDER BY p.CreatedDate DESC
         """
         
-        conn = self._get_connection()
-        cursor = conn.cursor(as_dict=True)
-        cursor.execute(query, (start_date, end_date))
-        results = cursor.fetchall()
-        conn.close()
-        
-        for r in results:
-            r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
-        
-        return results
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(as_dict=True)
+            cursor.execute(query, (start_date, end_date))
+            results = cursor.fetchall()
+            conn.close()
+            
+            for r in results:
+                r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
+            
+            return results
+        except Exception as e:
+            print(f"DEBUG ERROR in get_planogram_photos: {e}")
+            return []
     
-    def get_visit_photos(self, visit_id: int = None, start_date: str = None, end_date: str = None) -> Dict:
+    def get_visit_photos(self, visit_id: int = None, start_date: str = None, end_date: str = None, user_id: int = None, customer_code: str = None) -> List[Dict]:
         """Ziyaret fotoğraflarını getirir."""
-        user_filter = self._build_user_filter()
-        user_join = "LEFT JOIN UserRoles ur ON v.UserId = ur.UserId" if user_filter else ""
+        user_join = ""
+        if 'user_role_id' in self.filters:
+            user_join = "INNER JOIN UserRoles ur ON v.UserId = ur.UserId AND ur.RoleId = {} AND ur.IsDeleted = 0".format(self.filters['user_role_id'])
         
         if visit_id:
             where_clause = "v.Id = %s"
@@ -259,9 +271,17 @@ class BaseSource:
             where_clause = "CAST(v.CreatedDate AS DATE) BETWEEN %s AND %s"
             params = (start_date, end_date)
         
+        # Ekstra filtreler
+        extra_filters = ""
+        if user_id:
+            extra_filters += f" AND v.UserId = {user_id}"
+        if customer_code:
+            extra_filters += f" AND r.CustomerId = '{customer_code}'"
+        
         query = f"""
         SELECT 
             v.Id as VisitId,
+            v.Id as PhotoId,
             v.ImagePath,
             v.StartDate,
             v.FinishDate,
@@ -281,21 +301,24 @@ class BaseSource:
         WHERE v.ImagePath IS NOT NULL
           AND v.IsDeleted = 0
           AND {where_clause}
-          {user_filter}
+          {extra_filters}
         ORDER BY v.StartDate DESC
         """
         
-        conn = self._get_connection()
-        cursor = conn.cursor(as_dict=True)
-        cursor.execute(query, params)
-        results = cursor.fetchall()
-        conn.close()
-        
-        for r in results:
-            r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
-            r['PhotoId'] = r['VisitId']  # Tutarlılık için
-        
-        return results
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(as_dict=True)
+            cursor.execute(query, params)
+            results = cursor.fetchall()
+            conn.close()
+            
+            for r in results:
+                r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
+            
+            return results
+        except Exception as e:
+            print(f"DEBUG ERROR in get_visit_photos: {e}")
+            return []
     
     def get_photos_grouped(self, photo_type: str, start_date: str, end_date: str, user_id: int = None, customer_code: str = None) -> List[Dict]:
         """Fotoğrafları ziyarete göre gruplandırarak getirir."""
@@ -305,9 +328,9 @@ class BaseSource:
             if photo_type == 'exhibition':
                 photos = self.get_exhibition_photos(start_date, end_date, user_id, customer_code)
             elif photo_type == 'planogram':
-                photos = self.get_planogram_photos(start_date, end_date)
+                photos = self.get_planogram_photos(start_date, end_date, user_id, customer_code)
             elif photo_type == 'visit':
-                photos = self.get_visit_photos(start_date=start_date, end_date=end_date)
+                photos = self.get_visit_photos(start_date=start_date, end_date=end_date, user_id=user_id, customer_code=customer_code)
             else:
                 print(f"DEBUG unknown photo_type: {photo_type}")
                 return []
