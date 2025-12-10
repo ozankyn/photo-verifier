@@ -314,6 +314,7 @@ class BaseSource:
             
             for r in results:
                 r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
+                r['PhotoDate'] = r.get('StartDate')  # Template uyumu için
             
             return results
         except Exception as e:
