@@ -99,13 +99,25 @@ class BaseSource:
         if not db_path:
             return ""
         
-        # UNC path'i temizle
+        # Tüm backslash'leri forward slash'e çevir
         path = db_path.replace('\\', '/')
+        
+        # Çift slash'leri tek yap
+        while '//' in path:
+            path = path.replace('//', '/')
         
         # Image'den sonrasını al
         if '/Image/' in path:
             return path.split('/Image/')[-1]
-        return path
+        
+        # Alternatif: Yıl klasörünü bul (2025, 2024 gibi)
+        parts = path.split('/')
+        for i, part in enumerate(parts):
+            if part.isdigit() and len(part) == 4 and int(part) >= 2020:
+                return '/'.join(parts[i:])
+        
+        # En kötü ihtimal: sadece dosya adı
+        return path.split('/')[-1]
     
     # ==================== FOTOğRAF SORGULARI ====================
     
@@ -144,17 +156,27 @@ class BaseSource:
         ORDER BY e.CreatedDate DESC
         """
         
-        conn = self._get_connection()
-        cursor = conn.cursor(as_dict=True)
-        cursor.execute(query, (start_date, end_date))
-        results = cursor.fetchall()
-        conn.close()
+        print(f"DEBUG get_exhibition_photos: {start_date} to {end_date}")
         
-        # Path'leri dönüştür
-        for r in results:
-            r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
-        
-        return results
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(as_dict=True)
+            cursor.execute(query, (start_date, end_date))
+            results = cursor.fetchall()
+            conn.close()
+            
+            print(f"DEBUG exhibition query returned: {len(results)} rows")
+            
+            # Path'leri dönüştür
+            for r in results:
+                r['ImageUrl'] = self._convert_image_path(r['ImagePath'])
+            
+            return results
+        except Exception as e:
+            print(f"DEBUG ERROR in get_exhibition_photos: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
     
     def get_planogram_photos(self, start_date: str, end_date: str) -> List[Dict]:
         """Planogram fotoğraflarını getirir."""
@@ -252,14 +274,27 @@ class BaseSource:
     
     def get_photos_grouped(self, photo_type: str, start_date: str, end_date: str) -> List[Dict]:
         """Fotoğrafları ziyarete göre gruplandırarak getirir."""
+        print(f"DEBUG get_photos_grouped: type={photo_type}, from={start_date}, to={end_date}")
         
-        if photo_type == 'exhibition':
-            photos = self.get_exhibition_photos(start_date, end_date)
-        elif photo_type == 'planogram':
-            photos = self.get_planogram_photos(start_date, end_date)
-        elif photo_type == 'visit':
-            photos = self.get_visit_photos(start_date=start_date, end_date=end_date)
-        else:
+        try:
+            if photo_type == 'exhibition':
+                photos = self.get_exhibition_photos(start_date, end_date)
+            elif photo_type == 'planogram':
+                photos = self.get_planogram_photos(start_date, end_date)
+            elif photo_type == 'visit':
+                photos = self.get_visit_photos(start_date=start_date, end_date=end_date)
+            else:
+                print(f"DEBUG unknown photo_type: {photo_type}")
+                return []
+            
+            print(f"DEBUG photos count: {len(photos)}")
+            if photos:
+                print(f"DEBUG first photo ImagePath: {photos[0].get('ImagePath', 'NO PATH')}")
+                print(f"DEBUG first photo ImageUrl: {photos[0].get('ImageUrl', 'NO URL')}")
+        except Exception as e:
+            print(f"DEBUG ERROR in get_photos_grouped: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         
         # Ziyarete göre grupla
@@ -281,6 +316,7 @@ class BaseSource:
         result = list(grouped.values())
         result.sort(key=lambda x: x['visit_date'] or '', reverse=True)
         
+        print(f"DEBUG grouped visits count: {len(result)}")
         return result
     
     def get_all_visit_photos(self, visit_id: int) -> Dict:
