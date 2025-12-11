@@ -74,10 +74,23 @@
     </div>
     {% endif %}
     
-    <!-- Footer -->
-    <div class="nav-section" style="margin-top: auto; padding: 1rem 1.5rem;">
+    <!-- Kullanıcı & Footer -->
+    <div class="nav-section" style="margin-top: auto; padding: 1rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        {% if current_user %}
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+                <div style="color: rgba(255,255,255,0.9); font-weight: 500;">
+                    👤 {{ current_user.display_name }}
+                </div>
+                <small style="color: rgba(255,255,255,0.5);">{{ current_user.role }}</small>
+            </div>
+            <a href="/logout" class="btn btn-sm btn-outline-light" title="Çıkış" style="padding: 0.25rem 0.5rem;">
+                🚪
+            </a>
+        </div>
+        {% endif %}
         <small style="color: rgba(255,255,255,0.3);">
-            Team Guerilla © 2024
+            Team Guerilla © 2025
         </small>
     </div>
 </div>
