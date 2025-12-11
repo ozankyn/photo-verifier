@@ -627,6 +627,50 @@ class BaseSource:
             traceback.print_exc()
             return []
 
+    def get_duplicates_from_cache(self) -> List[Dict]:
+        """Önbellekten duplicate'leri getirir (hızlı)."""
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor(as_dict=True)
+            
+            cursor.execute('''
+                SELECT Md5Hash, PhotoCount, Details, UpdatedAt
+                FROM DuplicateCache
+                WHERE Project = %s
+                ORDER BY PhotoCount DESC
+            ''', (self.project_key,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            duplicates = []
+            for row in results:
+                import json
+                files = json.loads(row['Details']) if row['Details'] else []
+                duplicates.append({
+                    'hash': row['Md5Hash'],
+                    'count': row['PhotoCount'],
+                    'files': files,
+                    'cached_at': row['UpdatedAt']
+                })
+            
+            return duplicates
+        except Exception as e:
+            print(f"DEBUG get_duplicates_from_cache error: {e}")
+            return []
+
+    def has_duplicate_cache(self) -> bool:
+        """Cache var mı kontrol eder."""
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM DuplicateCache WHERE Project = %s', (self.project_key,))
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+        except:
+            return False        
+
     def _get_photo_detail(self, photo_id: int, photo_type: str, visit_id: int) -> Dict:
         """Fotoğraf detaylarını ana DB'den alır."""
         try:

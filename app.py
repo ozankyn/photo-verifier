@@ -116,24 +116,27 @@ def visit_detail(project, visit_id):
 
 @app.route('/<project>/duplicates')
 def duplicates(project):
-    """Duplicate fotoğraflar listesi."""
+    """Duplicate fotoğraflar sayfası."""
     if project not in PROJECTS:
         return "Proje bulunamadı", 404
     
     config = get_project_config(project)
     source = get_source(project)
     
-    try:
+    # Önce cache'den dene (hızlı), yoksa canlı hesapla
+    if source.has_duplicate_cache():
+        duplicate_groups = source.get_duplicates_from_cache()
+        from_cache = True
+    else:
         duplicate_groups = source.find_duplicates()
-    except Exception as e:
-        duplicate_groups = []
-        print(f"Hata: {e}")
+        from_cache = False
     
     return render_template('duplicates.html',
                          project=project,
                          project_name=config['name'],
                          projects=PROJECTS,
-                         duplicate_groups=duplicate_groups)
+                         duplicate_groups=duplicate_groups,
+                         from_cache=from_cache)
 
 
 @app.route('/<project>/reports')
