@@ -604,3 +604,184 @@ def event_logs():
                          total=total,
                          current_user=get_current_user(),
                          projects=PROJECTS)
+
+
+@app.route('/<project>/reports')
+@login_required
+def reports(project):
+    """Raporlar sayfası."""
+    if project not in PROJECTS:
+        return "Proje bulunamadı", 404
+    
+    config = get_project_config(project)
+    
+    return render_template('reports.html',
+                         project=project,
+                         project_name=config['name'],
+                         projects=PROJECTS,
+                         current_user=get_current_user())
+
+@app.route('/<project>/reports/verifications')
+@login_required
+def report_verifications(project):
+    """Doğrulama raporu - Excel export."""
+    if project not in PROJECTS:
+        return "Proje bulunamadı", 404
+    
+    from io import BytesIO
+    import csv
+    
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    cursor.execute('''
+        SELECT v.PhotoId, v.PhotoType, v.VisitId, v.Status, v.Note, v.VerifiedAt,
+               u.Username, u.DisplayName
+        FROM Verifications v
+        LEFT JOIN Users u ON v.VerifiedBy = u.Id
+        WHERE v.Project = %s
+        ORDER BY v.VerifiedAt DESC
+    ''', (project,))
+    verifications = cursor.fetchall()
+    conn.close()
+    
+    # CSV oluştur
+    output = BytesIO()
+    import codecs
+    output.write(codecs.BOM_UTF8)  # Excel için UTF-8 BOM
+    
+    writer = csv.writer(codecs.getwriter('utf-8')(output))
+    writer.writerow(['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Durum', 'Yorum', 'Tarih', 'Kullanıcı', 'Ad Soyad'])
+    
+    for v in verifications:
+        status_text = {'approved': 'Onaylandı', 'rejected': 'Reddedildi', 'suspicious': 'Şüpheli'}.get(v['Status'], v['Status'])
+        writer.writerow([
+            v['PhotoId'],
+            v['PhotoType'],
+            v['VisitId'],
+            status_text,
+            v['Note'] or '',
+            v['VerifiedAt'].strftime('%d.%m.%Y %H:%M') if v['VerifiedAt'] else '',
+            v['Username'] or '',
+            v['DisplayName'] or ''
+        ])
+    
+    output.seek(0)
+    
+    from flask import send_file
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'{project}_dogrulama_raporu.csv'
+    )
+
+@app.route('/<project>/reports/duplicates')
+@login_required
+def report_duplicates(project):
+    """Duplicate raporu - Excel export."""
+    if project not in PROJECTS:
+        return "Proje bulunamadı", 404
+    
+    from io import BytesIO
+    import csv
+    import json
+    
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    cursor.execute('''
+        SELECT Md5Hash, PhotoCount, Details, UpdatedAt
+        FROM DuplicateCache
+        WHERE Project = %s
+        ORDER BY PhotoCount DESC
+    ''', (project,))
+    duplicates = cursor.fetchall()
+    conn.close()
+    
+    # CSV oluştur
+    output = BytesIO()
+    import codecs
+    output.write(codecs.BOM_UTF8)
+    
+    writer = csv.writer(codecs.getwriter('utf-8')(output))
+    writer.writerow(['Hash', 'Adet', 'Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza', 'Mağaza Kodu', 'Tarih', 'Mesafe (km)'])
+    
+    for dup in duplicates:
+        files = json.loads(dup['Details']) if dup['Details'] else []
+        for f in files:
+            writer.writerow([
+                dup['Md5Hash'],
+                dup['PhotoCount'],
+                f.get('photo_id', ''),
+                f.get('photo_type', ''),
+                f.get('visit_id', ''),
+                f.get('personnel', ''),
+                f.get('customer_name', ''),
+                f.get('customer_code', ''),
+                f.get('photo_date', ''),
+                f.get('distance_km', '')
+            ])
+    
+    output.seek(0)
+    
+    from flask import send_file
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'{project}_duplicate_raporu.csv'
+    )
+
+@app.route('/<project>/reports/distance-alerts')
+@login_required
+def report_distance_alerts(project):
+    """Mesafe uyarı raporu - 1km+ uzaktan girişler."""
+    if project not in PROJECTS:
+        return "Proje bulunamadı", 404
+    
+    from io import BytesIO
+    import csv
+    import json
+    
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    cursor.execute('''
+        SELECT Details
+        FROM DuplicateCache
+        WHERE Project = %s
+    ''', (project,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    # CSV oluştur
+    output = BytesIO()
+    import codecs
+    output.write(codecs.BOM_UTF8)
+    
+    writer = csv.writer(codecs.getwriter('utf-8')(output))
+    writer.writerow(['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza', 'Mağaza Kodu', 'Tarih', 'Mesafe (km)'])
+    
+    for row in rows:
+        files = json.loads(row['Details']) if row['Details'] else []
+        for f in files:
+            distance = f.get('distance_km')
+            if distance and distance > 1:
+                writer.writerow([
+                    f.get('photo_id', ''),
+                    f.get('photo_type', ''),
+                    f.get('visit_id', ''),
+                    f.get('personnel', ''),
+                    f.get('customer_name', ''),
+                    f.get('customer_code', ''),
+                    f.get('photo_date', ''),
+                    distance
+                ])
+    
+    output.seek(0)
+    
+    from flask import send_file
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'{project}_mesafe_uyari_raporu.csv'
+    )
