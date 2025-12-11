@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ 'Kullanıcı Ekle' if action == 'add' else 'Kullanıcı Düzenle' }} - Photo Verifier{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        {% if action == 'add' %}
+                        ➕ Yeni Kullanıcı
+                        {% else %}
+                        ✏️ Kullanıcı Düzenle: {{ user.Username }}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    
+                    <form method="POST">
+                        {% if action == 'add' %}
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Kullanıcı Adı *</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Şifre *</label>
+                            <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                            <small class="text-muted">En az 6 karakter</small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="display_name" class="form-label">Ad Soyad</label>
+                            <input type="text" class="form-control" id="display_name" name="display_name" 
+                                   value="{{ user.DisplayName if user else '' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ user.Email if user else '' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol</label>
+                            <select class="form-select" id="role" name="role">
+                                <option value="Viewer" {% if user and user.Role == 'Viewer' %}selected{% endif %}>Viewer - Sadece görüntüleme</option>
+                                <option value="Editor" {% if user and user.Role == 'Editor' %}selected{% endif %}>Editor - Doğrulama yapabilir</option>
+                                <option value="Admin" {% if user and user.Role == 'Admin' %}selected{% endif %}>Admin - Tam yetki</option>
+                            </select>
+                        </div>
+                        
+                        {% if action == 'edit' %}
+                        <div class="mb-3">
+                            <label for="is_active" class="form-label">Durum</label>
+                            <select class="form-select" id="is_active" name="is_active">
+                                <option value="1" {% if user.IsActive %}selected{% endif %}>Aktif</option>
+                                <option value="0" {% if not user.IsActive %}selected{% endif %}>Pasif</option>
+                            </select>
+                        </div>
+                        
+                        <hr>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Yeni Şifre (opsiyonel)</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" minlength="6">
+                            <small class="text-muted">Boş bırakırsanız şifre değişmez</small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1">
+                                {% if action == 'add' %}
+                                ➕ Kullanıcı Oluştur
+                                {% else %}
+                                💾 Kaydet
+                                {% endif %}
+                            </button>
+                            <a href="/admin/users" class="btn btn-outline-secondary">İptal</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

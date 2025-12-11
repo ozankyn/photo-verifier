@@ -73,6 +73,25 @@
         </nav>
     </div>
     {% endif %}
+
+    <!-- Admin Menü (sadece Admin rolü için) -->
+    {% if current_user and current_user.role == 'Admin' %}
+    <div class="nav-section">
+        <div class="nav-section-title">⚙️ Yönetim</div>
+        <nav class="nav flex-column">
+            <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" 
+               href="/admin/users">
+                <span class="icon">👥</span>
+                Kullanıcılar
+            </a>
+            <a class="nav-link {% if request.endpoint == 'event_logs' %}active{% endif %}" 
+               href="/admin/logs">
+                <span class="icon">📋</span>
+                Event Loglar
+            </a>
+        </nav>
+    </div>
+    {% endif %}
     
     <!-- Kullanıcı & Footer -->
     <div class="nav-section" style="margin-top: auto; padding: 1rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">

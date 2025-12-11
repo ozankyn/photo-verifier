@@ -37,6 +37,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_required(f):
+    """Admin yetkisi gerektiren sayfalar için decorator."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        if session.get('role') != 'Admin':
+            return "Yetkiniz yok", 403
+        return f(*args, **kwargs)
+    return decorated_function    
+
 def get_current_user():
     """Oturum açmış kullanıcıyı getirir."""
     if 'user_id' in session:
@@ -138,6 +149,128 @@ def logout():
 def index():
     """Ana sayfa - ilk projeye yönlendir."""
     return redirect(url_for('dashboard', project='adco'))
+
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    """Kullanıcı listesi."""
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    cursor.execute('''
+        SELECT Id, Username, DisplayName, Email, Role, IsActive, AuthSource, CreatedAt, LastLoginAt
+        FROM Users
+        ORDER BY CreatedAt DESC
+    ''')
+    users = cursor.fetchall()
+    conn.close()
+    
+    return render_template('admin_users.html',
+                         users=users,
+                         current_user=get_current_user(),
+                         projects=PROJECTS)
+
+@app.route('/admin/users/add', methods=['GET', 'POST'])
+@admin_required
+def admin_user_add():
+    """Yeni kullanıcı ekle."""
+    error = None
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        display_name = request.form.get('display_name', '').strip()
+        email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'Viewer')
+        
+        if not username or not password:
+            error = 'Kullanıcı adı ve şifre zorunlu'
+        elif len(password) < 6:
+            error = 'Şifre en az 6 karakter olmalı'
+        else:
+            try:
+                conn = get_pv_connection()
+                cursor = conn.cursor()
+                
+                # Kullanıcı adı var mı?
+                cursor.execute('SELECT Id FROM Users WHERE Username = %s', (username,))
+                if cursor.fetchone():
+                    error = 'Bu kullanıcı adı zaten mevcut'
+                else:
+                    cursor.execute('''
+                        INSERT INTO Users (Username, PasswordHash, DisplayName, Email, Role, IsActive, AuthSource)
+                        VALUES (%s, %s, %s, %s, %s, 1, 'Local')
+                    ''', (username, hash_password(password), display_name or username, email, role))
+                    conn.commit()
+                    log_event('UserCreate', details=f'Kullanıcı oluşturuldu: {username}')
+                    conn.close()
+                    return redirect(url_for('admin_users'))
+                conn.close()
+            except Exception as e:
+                error = f'Sistem hatası: {str(e)}'
+    
+    return render_template('admin_user_form.html',
+                         action='add',
+                         user=None,
+                         error=error,
+                         current_user=get_current_user(),
+                         projects=PROJECTS)
+
+@app.route('/admin/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_user_edit(user_id):
+    """Kullanıcı düzenle."""
+    error = None
+    
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    cursor.execute('SELECT * FROM Users WHERE Id = %s', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if not user:
+        return "Kullanıcı bulunamadı", 404
+    
+    if request.method == 'POST':
+        display_name = request.form.get('display_name', '').strip()
+        email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'Viewer')
+        is_active = request.form.get('is_active') == '1'
+        new_password = request.form.get('new_password', '')
+        
+        try:
+            conn = get_pv_connection()
+            cursor = conn.cursor()
+            
+            if new_password:
+                if len(new_password) < 6:
+                    error = 'Şifre en az 6 karakter olmalı'
+                else:
+                    cursor.execute('''
+                        UPDATE Users SET DisplayName = %s, Email = %s, Role = %s, IsActive = %s, PasswordHash = %s
+                        WHERE Id = %s
+                    ''', (display_name, email, role, is_active, hash_password(new_password), user_id))
+            else:
+                cursor.execute('''
+                    UPDATE Users SET DisplayName = %s, Email = %s, Role = %s, IsActive = %s
+                    WHERE Id = %s
+                ''', (display_name, email, role, is_active, user_id))
+            
+            if not error:
+                conn.commit()
+                log_event('UserEdit', details=f'Kullanıcı düzenlendi: {user["Username"]}')
+                conn.close()
+                return redirect(url_for('admin_users'))
+            conn.close()
+        except Exception as e:
+            error = f'Sistem hatası: {str(e)}'
+    
+    return render_template('admin_user_form.html',
+                         action='edit',
+                         user=user,
+                         error=error,
+                         current_user=get_current_user(),
+                         projects=PROJECTS)    
 
 
 @app.route('/<project>')
@@ -384,7 +517,7 @@ if __name__ == '__main__':
     print("http://localhost:5555")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5555, debug=True)
-    
+
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required

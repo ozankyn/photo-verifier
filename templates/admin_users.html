@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Kullanıcı Yönetimi - Photo Verifier{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>👥 Kullanıcı Yönetimi</h4>
+        <a href="/admin/users/add" class="btn btn-primary">
+            ➕ Yeni Kullanıcı
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Kullanıcı Adı</th>
+                            <th>Ad Soyad</th>
+                            <th>E-posta</th>
+                            <th>Rol</th>
+                            <th>Durum</th>
+                            <th>Son Giriş</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.Id }}</td>
+                            <td><strong>{{ user.Username }}</strong></td>
+                            <td>{{ user.DisplayName or '-' }}</td>
+                            <td>{{ user.Email or '-' }}</td>
+                            <td>
+                                {% if user.Role == 'Admin' %}
+                                <span class="badge bg-danger">Admin</span>
+                                {% elif user.Role == 'Editor' %}
+                                <span class="badge bg-warning">Editor</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Viewer</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.IsActive %}
+                                <span class="badge bg-success">Aktif</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Pasif</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.LastLoginAt %}
+                                {{ user.LastLoginAt.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                <span class="text-muted">Hiç giriş yapmadı</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/admin/users/{{ user.Id }}/edit" class="btn btn-sm btn-outline-primary">
+                                    ✏️ Düzenle
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-3">
+        <a href="/" class="btn btn-outline-secondary">← Ana Sayfa</a>
+    </div>
+</div>
+{% endblock %}
