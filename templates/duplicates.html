@@ -44,9 +44,11 @@
                              onclick="openImageModal(this.src)"
                              onerror="this.src='https://via.placeholder.com/300x200?text=Yüklenemedi'">
                         <div class="card-body">
-                            <p class="mb-1"><strong>Fotoğraf ID:</strong> {{ file.photo_id }}</p>
-                            <p class="mb-1"><strong>Ziyaret ID:</strong> {{ file.visit_id }}</p>
-                            <p class="mb-1"><strong>Tür:</strong> {{ file.photo_type }}</p>
+                            <p class="mb-1"><strong>👤 Personel:</strong> {{ file.personnel or '-' }}</p>
+                            <p class="mb-1"><strong>🏪 Nokta:</strong> {{ file.customer_name or '-' }}</p>
+                            <p class="mb-1"><strong>🔢 Kod:</strong> {{ file.customer_code or '-' }}</p>
+                            <p class="mb-1"><strong>📅 Tarih:</strong> {{ file.photo_date | datetime if file.photo_date else '-' }}</p>
+                            <p class="mb-1 text-muted small">ID: {{ file.photo_id }} | Ziyaret: {{ file.visit_id }}</p>
                             <a href="/{{ project }}/visit/{{ file.visit_id }}" class="btn btn-sm btn-outline-primary mt-2">
                                 Ziyareti Gör
                             </a>

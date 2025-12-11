@@ -596,12 +596,24 @@ class BaseSource:
             
             files = []
             for row in cursor.fetchall():
+                photo_id = row[0]
+                photo_type = row[1]
+                visit_id = row[2]
+                image_path = row[3]
+                
+                # Ana DB'den personel ve müşteri bilgisi al
+                detail = self._get_photo_detail(photo_id, photo_type, visit_id)
+                
                 files.append({
-                    'photo_id': row[0],
-                    'photo_type': row[1],
-                    'visit_id': row[2],
-                    'image_path': row[3],
-                    'image_url': self._convert_image_path(row[3])
+                    'photo_id': photo_id,
+                    'photo_type': photo_type,
+                    'visit_id': visit_id,
+                    'image_path': image_path,
+                    'image_url': self._convert_image_path(image_path),
+                    'personnel': detail.get('personnel', ''),
+                    'customer_name': detail.get('customer_name', ''),
+                    'customer_code': detail.get('customer_code', ''),
+                    'photo_date': detail.get('photo_date', ''),
                 })
             
             duplicates.append({
@@ -612,6 +624,70 @@ class BaseSource:
         
         conn.close()
         return duplicates
+
+    def _get_photo_detail(self, photo_id: int, photo_type: str, visit_id: int) -> Dict:
+        """Fotoğraf detaylarını ana DB'den alır."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor(as_dict=True)
+            
+            if photo_type == 'exhibition':
+                cursor.execute('''
+                    SELECT 
+                        e.CreatedDate as photo_date,
+                        u.Name + ' ' + u.Surname as personnel,
+                        c.CustomerName as customer_name,
+                        c.CustomerCode as customer_code
+                    FROM TeammateVisitExhibition e
+                    INNER JOIN TeammateVisit v ON e.TeammateVisitId = v.Id
+                    INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
+                    INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
+                    INNER JOIN Users u ON v.UserId = u.Id
+                    WHERE e.Id = %s
+                ''', (photo_id,))
+            elif photo_type == 'planogram':
+                cursor.execute('''
+                    SELECT 
+                        p.CreatedDate as photo_date,
+                        u.Name + ' ' + u.Surname as personnel,
+                        c.CustomerName as customer_name,
+                        c.CustomerCode as customer_code
+                    FROM TeammateVisitPlanogram p
+                    INNER JOIN TeammateVisit v ON p.TeammateVisitId = v.Id
+                    INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
+                    INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
+                    INNER JOIN Users u ON v.UserId = u.Id
+                    WHERE p.Id = %s
+                ''', (photo_id,))
+            elif photo_type == 'visit':
+                cursor.execute('''
+                    SELECT 
+                        v.StartDate as photo_date,
+                        u.Name + ' ' + u.Surname as personnel,
+                        c.CustomerName as customer_name,
+                        c.CustomerCode as customer_code
+                    FROM TeammateVisit v
+                    INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
+                    INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
+                    INNER JOIN Users u ON v.UserId = u.Id
+                    WHERE v.Id = %s
+                ''', (photo_id,))
+            else:
+                conn.close()
+                return {}
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                # Türkçe karakter düzeltmesi
+                if result.get('personnel'):
+                    result['personnel'] = self._fix_turkish_chars(result['personnel'])
+                return result
+            return {}
+        except Exception as e:
+            print(f"DEBUG _get_photo_detail error: {e}")
+            return {}
 
     def get_personnel_list(self, start_date: str = None, end_date: str = None) -> List[Dict]:
         """Aktif personel listesini getirir."""
