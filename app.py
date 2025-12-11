@@ -384,3 +384,47 @@ if __name__ == '__main__':
     print("http://localhost:5555")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5555, debug=True)
+    
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Profil ve şifre değiştirme."""
+    message = None
+    error = None
+    
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        if not all([current_password, new_password, confirm_password]):
+            error = 'Tüm alanları doldurun'
+        elif new_password != confirm_password:
+            error = 'Yeni şifreler eşleşmiyor'
+        elif len(new_password) < 6:
+            error = 'Şifre en az 6 karakter olmalı'
+        else:
+            try:
+                conn = get_pv_connection()
+                cursor = conn.cursor(as_dict=True)
+                cursor.execute('SELECT PasswordHash FROM Users WHERE Id = %s', (session['user_id'],))
+                user = cursor.fetchone()
+                
+                if user and user['PasswordHash'] == hash_password(current_password):
+                    cursor.execute('UPDATE Users SET PasswordHash = %s WHERE Id = %s', 
+                                 (hash_password(new_password), session['user_id']))
+                    conn.commit()
+                    message = 'Şifre başarıyla güncellendi'
+                    log_event('PasswordChange', details='Şifre değiştirildi')
+                else:
+                    error = 'Mevcut şifre hatalı'
+                conn.close()
+            except Exception as e:
+                error = f'Sistem hatası: {str(e)}'
+    
+    return render_template('profile.html', 
+                         message=message, 
+                         error=error,
+                         current_user=get_current_user(),
+                         projects=PROJECTS)    
