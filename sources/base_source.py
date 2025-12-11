@@ -3,15 +3,13 @@ Base Source - Temel Veritabanı İşlemleri
 =========================================
 Tüm projeler için ortak sorgular ve işlemler.
 """
-
-import pymssql
-import sqlite3
-import hashlib
 import os
+import pymssql
+import hashlib
 from datetime import datetime
 from typing import List, Dict, Optional
 from config import PHOTO_TYPE_CONFIG
-
+from config import PHOTOVERIFIER_DB
 
 class BaseSource:
     """Temel veri kaynağı sınıfı."""
@@ -23,11 +21,8 @@ class BaseSource:
         self.image_path = config['image_path']
         self.filters = config.get('filters', {})
         
-        # Doğrulama DB'si (SQLite - lokal)
-        self.verify_db_path = os.path.join(
-            os.path.dirname(__file__), '..', 'data', 'verifications.db'
-        )
-        self._init_verify_db()
+        # Doğrulama DB'si (SQL Server - PhotoVerifier)
+        self.pv_db_config = PHOTOVERIFIER_DB
     
     def _get_connection(self):
         """SQL Server bağlantısı oluşturur."""
@@ -38,6 +33,16 @@ class BaseSource:
             password=self.db_config['password'],
             database=self.db_config['database']
         )
+
+    def _get_pv_connection(self):
+        """PhotoVerifier veritabanı bağlantısı oluşturur."""
+        return pymssql.connect(
+            server=self.pv_db_config['host'],
+            port=self.pv_db_config.get('port', 1433),
+            user=self.pv_db_config['username'],
+            password=self.pv_db_config['password'],
+            database=self.pv_db_config['database']
+        )    
 
     def _fix_turkish_chars(self, text: str) -> str:
         """Bozuk Türkçe karakterleri düzeltir."""
@@ -70,51 +75,7 @@ class BaseSource:
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
         
         return round(R * c, 2)    
-    
-    def _init_verify_db(self):
-        """Doğrulama veritabanını oluşturur."""
-        os.makedirs(os.path.dirname(self.verify_db_path), exist_ok=True)
-        
-        conn = sqlite3.connect(self.verify_db_path)
-        cursor = conn.cursor()
-        
-        # Doğrulama tablosu
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS verifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project TEXT NOT NULL,
-                photo_type TEXT NOT NULL,
-                photo_id INTEGER NOT NULL,
-                visit_id INTEGER,
-                status TEXT NOT NULL,
-                note TEXT,
-                verified_by TEXT,
-                verified_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(project, photo_type, photo_id)
-            )
-        ''')
-        
-        # Hash tablosu (duplicate detection için)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS photo_hashes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project TEXT NOT NULL,
-                photo_type TEXT NOT NULL,
-                photo_id INTEGER NOT NULL,
-                visit_id INTEGER,
-                md5_hash TEXT,
-                file_size INTEGER,
-                image_path TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(project, photo_type, photo_id)
-            )
-        ''')
-        
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_hash ON photo_hashes(md5_hash)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_project ON photo_hashes(project)')
-        
-        conn.commit()
-        conn.close()
+
     
     def _build_user_filter(self):
         """Kullanıcı filtresi SQL parçası oluşturur."""
@@ -536,125 +497,135 @@ class BaseSource:
     
     # ==================== DOĞRULAMA ====================
     
-    def verify_photo(self, photo_id: int, photo_type: str, status: str, 
-                     note: str = '', verified_by: str = 'anonymous') -> Dict:
-        """Fotoğrafı doğrular/reddeder."""
-        conn = sqlite3.connect(self.verify_db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO verifications 
-            (project, photo_type, photo_id, status, note, verified_by, verified_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            self.project_key,
-            photo_type,
-            photo_id,
-            status,
-            note,
-            verified_by,
-            datetime.now().isoformat()
-        ))
-        
-        conn.commit()
-        conn.close()
-        
-        return {'photo_id': photo_id, 'status': status}
+    def verify_photo(self, photo_id: int, photo_type: str, status: str, note: str = None, visit_id: int = None) -> bool:
+        """Fotoğraf doğrulama sonucunu kaydeder."""
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor()
+            
+            # Önce var mı kontrol et
+            cursor.execute('''
+                SELECT Id FROM Verifications 
+                WHERE Project = %s AND PhotoType = %s AND PhotoId = %s
+            ''', (self.project_key, photo_type, photo_id))
+            
+            existing = cursor.fetchone()
+            
+            if existing:
+                cursor.execute('''
+                    UPDATE Verifications 
+                    SET Status = %s, Note = %s, VerifiedAt = GETDATE()
+                    WHERE Project = %s AND PhotoType = %s AND PhotoId = %s
+                ''', (status, note, self.project_key, photo_type, photo_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO Verifications (Project, PhotoType, PhotoId, VisitId, Status, Note)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', (self.project_key, photo_type, photo_id, visit_id, status, note))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"DEBUG verify_photo error: {e}")
+            return False
     
     def get_verification_status(self, photo_id: int, photo_type: str) -> Optional[Dict]:
         """Fotoğrafın doğrulama durumunu getirir."""
-        conn = sqlite3.connect(self.verify_db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT status, note, verified_by, verified_at
-            FROM verifications
-            WHERE project = ? AND photo_type = ? AND photo_id = ?
-        ''', (self.project_key, photo_type, photo_id))
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
-            return {
-                'status': row[0],
-                'note': row[1],
-                'verified_by': row[2],
-                'verified_at': row[3]
-            }
-        return None
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor(as_dict=True)
+            
+            cursor.execute('''
+                SELECT Status as status, Note as note, VerifiedAt as verified_at
+                FROM Verifications
+                WHERE Project = %s AND PhotoType = %s AND PhotoId = %s
+            ''', (self.project_key, photo_type, photo_id))
+            
+            result = cursor.fetchone()
+            conn.close()
+            return result
+        except Exception as e:
+            print(f"DEBUG get_verification_status error: {e}")
+            return None
     
     # ==================== DUPLICATE DETECTION ====================
     
     def find_duplicates(self) -> List[Dict]:
         """Duplicate fotoğrafları bulur (hash tabanlı)."""
-        conn = sqlite3.connect(self.verify_db_path)
-        cursor = conn.cursor()
-        
-        # Aynı hash'e sahip grupları bul
-        cursor.execute('''
-            SELECT md5_hash, COUNT(*) as count
-            FROM photo_hashes
-            WHERE project = ? AND md5_hash IS NOT NULL
-            GROUP BY md5_hash
-            HAVING COUNT(*) > 1
-        ''', (self.project_key,))
-        
-        duplicate_hashes = cursor.fetchall()
-        duplicates = []
-        
-        for md5_hash, count in duplicate_hashes:
-            cursor.execute('''
-                SELECT photo_id, photo_type, visit_id, image_path
-                FROM photo_hashes
-                WHERE project = ? AND md5_hash = ?
-            ''', (self.project_key, md5_hash))
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor()
             
-            files = []
-            for row in cursor.fetchall():
-                photo_id = row[0]
-                photo_type = row[1]
-                visit_id = row[2]
-                image_path = row[3]
+            # Aynı hash'e sahip grupları bul
+            cursor.execute('''
+                SELECT Md5Hash, COUNT(*) as count
+                FROM PhotoHashes
+                WHERE Project = %s AND Md5Hash IS NOT NULL
+                GROUP BY Md5Hash
+                HAVING COUNT(*) > 1
+            ''', (self.project_key,))
+            
+            duplicate_hashes = cursor.fetchall()
+            duplicates = []
+            
+            for md5_hash, count in duplicate_hashes:
+                cursor.execute('''
+                    SELECT PhotoId, PhotoType, VisitId, ImagePath
+                    FROM PhotoHashes
+                    WHERE Project = %s AND Md5Hash = %s
+                ''', (self.project_key, md5_hash))
                 
-                # Ana DB'den personel ve müşteri bilgisi al
-                detail = self._get_photo_detail(photo_id, photo_type, visit_id)
+                files = []
+                for row in cursor.fetchall():
+                    photo_id = row[0]
+                    photo_type = row[1]
+                    visit_id = row[2]
+                    image_path = row[3]
+                    
+                    # Ana DB'den personel ve müşteri bilgisi al
+                    detail = self._get_photo_detail(photo_id, photo_type, visit_id)
+                    
+                    # Mesafe hesapla (km)
+                    distance = None
+                    visit_lat = detail.get('visit_lat')
+                    visit_lon = detail.get('visit_lon')
+                    customer_lat = detail.get('customer_lat')
+                    customer_lon = detail.get('customer_lon')
+                    
+                    if all([visit_lat, visit_lon, customer_lat, customer_lon]):
+                        distance = self._calculate_distance(visit_lat, visit_lon, customer_lat, customer_lon)
+                    
+                    files.append({
+                        'photo_id': photo_id,
+                        'photo_type': photo_type,
+                        'visit_id': visit_id,
+                        'image_path': image_path,
+                        'image_url': self._convert_image_path(image_path),
+                        'personnel': detail.get('personnel', ''),
+                        'customer_name': detail.get('customer_name', ''),
+                        'customer_code': detail.get('customer_code', ''),
+                        'photo_date': detail.get('photo_date', ''),
+                        'visit_lat': visit_lat,
+                        'visit_lon': visit_lon,
+                        'customer_lat': customer_lat,
+                        'customer_lon': customer_lon,
+                        'distance_km': distance,
+                    })
                 
-                # Mesafe hesapla (km)
-                distance = None
-                visit_lat = detail.get('visit_lat')
-                visit_lon = detail.get('visit_lon')
-                customer_lat = detail.get('customer_lat')
-                customer_lon = detail.get('customer_lon')
-                
-                if all([visit_lat, visit_lon, customer_lat, customer_lon]):
-                    distance = self._calculate_distance(visit_lat, visit_lon, customer_lat, customer_lon)
-                
-                files.append({
-                    'photo_id': photo_id,
-                    'photo_type': photo_type,
-                    'visit_id': visit_id,
-                    'image_path': image_path,
-                    'image_url': self._convert_image_path(image_path),
-                    'personnel': detail.get('personnel', ''),
-                    'customer_name': detail.get('customer_name', ''),
-                    'customer_code': detail.get('customer_code', ''),
-                    'photo_date': detail.get('photo_date', ''),
-                    'visit_lat': visit_lat,
-                    'visit_lon': visit_lon,
-                    'customer_lat': customer_lat,
-                    'customer_lon': customer_lon,
-                    'distance_km': distance,
+                duplicates.append({
+                    'hash': md5_hash,
+                    'count': count,
+                    'files': files
                 })
             
-            duplicates.append({
-                'hash': md5_hash,
-                'count': count,
-                'files': files
-            })
-        
-        conn.close()
-        return duplicates
+            conn.close()
+            return duplicates
+        except Exception as e:
+            print(f"DEBUG find_duplicates error: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
     def _get_photo_detail(self, photo_id: int, photo_type: str, visit_id: int) -> Dict:
         """Fotoğraf detaylarını ana DB'den alır."""

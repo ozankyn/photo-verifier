@@ -12,6 +12,15 @@ DB_CONFIG = {
     'password': '1q2w3e4R!!',
 }
 
+# PhotoVerifier veritabanı (hash, verification, users, logs)
+PHOTOVERIFIER_DB = {
+    'host': '192.168.10.2',
+    'port': 1433,
+    'database': 'PhotoVerifier',
+    'username': 'photoverifier',
+    'password': '1q2w3e4R!!',
+}
+
 # Proje tanımları
 PROJECTS = {
     'adco': {
@@ -20,7 +29,7 @@ PROJECTS = {
         'image_path': r'D:\AdcoFiles\Image',
         'photo_tables': ['exhibition', 'planogram'],
         'color': '#3498db',  # Mavi
-        'icon': '🏪',
+        'icon': '🍷',
     },
     'beylerbeyi': {
         'name': 'Beylerbeyi',
@@ -28,7 +37,7 @@ PROJECTS = {
         'image_path': r'D:\BeylerbeyiFiles\Image',
         'photo_tables': ['exhibition', 'planogram'],
         'color': '#9b59b6',  # Mor
-        'icon': '🍺',
+        'icon': '🍶',
     },
     'bf': {
         'name': 'BF',
@@ -36,7 +45,7 @@ PROJECTS = {
         'image_path': r'D:\BFFiles\Image',
         'photo_tables': ['exhibition', 'visit'],
         'color': '#e74c3c',  # Kırmızı
-        'icon': '🔴',
+        'icon': '🥃 ',
     },
     'efes': {
         'name': 'Efes - KK Merch',

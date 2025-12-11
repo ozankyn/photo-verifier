@@ -7,11 +7,22 @@ Zamanlanmış görev olarak çalıştırılabilir.
 
 import os
 import hashlib
-import sqlite3
+import pymssql
 from datetime import datetime, timedelta
 
-from config import PROJECTS, get_project_config
+from config import PROJECTS, PHOTOVERIFIER_DB, get_project_config
 from sources import get_source
+
+
+def get_pv_connection():
+    """PhotoVerifier veritabanı bağlantısı."""
+    return pymssql.connect(
+        server=PHOTOVERIFIER_DB['host'],
+        port=PHOTOVERIFIER_DB.get('port', 1433),
+        user=PHOTOVERIFIER_DB['username'],
+        password=PHOTOVERIFIER_DB['password'],
+        database=PHOTOVERIFIER_DB['database']
+    )
 
 
 def calculate_md5(file_path: str) -> str:
@@ -45,8 +56,7 @@ def scan_project(project_key: str, days: int = 30):
     print(f"Tarih aralığı: {start_date} - {end_date}")
     
     # Veritabanı bağlantısı
-    db_path = os.path.join(os.path.dirname(__file__), 'data', 'verifications.db')
-    conn = sqlite3.connect(db_path)
+    conn = get_pv_connection()
     cursor = conn.cursor()
     
     stats = {'processed': 0, 'skipped': 0, 'not_found': 0, 'errors': 0}
@@ -78,8 +88,8 @@ def scan_project(project_key: str, days: int = 30):
             
             # Zaten tarandı mı?
             cursor.execute('''
-                SELECT 1 FROM photo_hashes 
-                WHERE project = ? AND photo_type = ? AND photo_id = ?
+                SELECT 1 FROM PhotoHashes 
+                WHERE Project = %s AND PhotoType = %s AND PhotoId = %s
             ''', (project_key, photo_type, photo_id))
             
             if cursor.fetchone():
@@ -100,9 +110,8 @@ def scan_project(project_key: str, days: int = 30):
                 file_size = os.path.getsize(local_path)
                 
                 cursor.execute('''
-                    INSERT OR REPLACE INTO photo_hashes 
-                    (project, photo_type, photo_id, visit_id, md5_hash, file_size, image_path)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO PhotoHashes (Project, PhotoType, PhotoId, VisitId, Md5Hash, FileSize, ImagePath)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', (project_key, photo_type, photo_id, visit_id, md5_hash, file_size, image_path))
                 
                 stats['processed'] += 1
