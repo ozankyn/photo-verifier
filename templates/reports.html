@@ -1,41 +1,32 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ project_name }} - Raporlar{% endblock %}
+{% block title %}Raporlar - {{ project_name }} - Photo Verifier{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1">📊 Raporlar</h2>
-            <p class="text-muted mb-0">{{ project_name }}</p>
-        </div>
-    </div>
+<div class="container-fluid py-4">
+    <h4 class="mb-4">📊 Raporlar - {{ project_name }}</h4>
     
     <div class="row g-4">
         <!-- Doğrulama Raporu -->
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-clipboard-check text-success"></i>
-                        Doğrulama Raporu
-                    </h5>
+                    <h5 class="card-title">✓ Doğrulama Raporu</h5>
                     <p class="card-text text-muted">
-                        Doğrulanmış, reddedilmiş ve şüpheli fotoğrafların listesi.
+                        Tüm doğrulama kayıtları: onaylanan, reddedilen ve şüpheli fotoğraflar.
+                        Hangi kullanıcının ne zaman işlem yaptığı bilgisi dahil.
                     </p>
-                    <form action="/{{ project }}/reports/verification" method="GET">
-                        <div class="mb-3">
-                            <label class="form-label">Tarih Aralığı</label>
-                            <div class="input-group">
-                                <input type="date" name="from" class="form-control" required>
-                                <input type="date" name="to" class="form-control" required>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-download"></i> Excel İndir
-                        </button>
-                    </form>
+                    <ul class="small text-muted mb-3">
+                        <li>Fotoğraf ID ve türü</li>
+                        <li>Doğrulama durumu</li>
+                        <li>Kullanıcı yorumu</li>
+                        <li>İşlem yapan ve tarih</li>
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="/{{ project }}/reports/verifications" class="btn btn-primary w-100">
+                        📥 CSV İndir
+                    </a>
                 </div>
             </div>
         </div>
@@ -44,78 +35,49 @@
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-files text-danger"></i>
-                        Duplicate Raporu
-                    </h5>
+                    <h5 class="card-title">📋 Duplicate Raporu</h5>
                     <p class="card-text text-muted">
-                        Tespit edilen duplicate fotoğrafların detaylı listesi.
+                        Aynı fotoğrafı birden fazla kez kullanan kayıtlar.
+                        Personel ve mağaza bilgileri dahil.
                     </p>
-                    <button class="btn btn-danger" onclick="downloadDuplicateReport()">
-                        <i class="bi bi-download"></i> Excel İndir
-                    </button>
+                    <ul class="small text-muted mb-3">
+                        <li>Hash ve tekrar sayısı</li>
+                        <li>Personel adı</li>
+                        <li>Mağaza adı ve kodu</li>
+                        <li>Mesafe bilgisi</li>
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="/{{ project }}/reports/duplicates" class="btn btn-warning w-100">
+                        📥 CSV İndir
+                    </a>
                 </div>
             </div>
         </div>
         
-        <!-- Personel Bazlı Rapor -->
+        <!-- Mesafe Uyarı Raporu -->
         <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-people text-primary"></i>
-                        Personel Raporu
-                    </h5>
+                    <h5 class="card-title">📍 Mesafe Uyarı Raporu</h5>
                     <p class="card-text text-muted">
-                        Personel bazlı fotoğraf sayıları ve doğrulama oranları.
+                        Mağazadan 1km'den fazla uzakta çekilen fotoğraflar.
+                        Şüpheli giriş noktaları.
                     </p>
-                    <form action="/{{ project }}/reports/personnel" method="GET">
-                        <div class="mb-3">
-                            <label class="form-label">Tarih Aralığı</label>
-                            <div class="input-group">
-                                <input type="date" name="from" class="form-control" required>
-                                <input type="date" name="to" class="form-control" required>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-download"></i> Excel İndir
-                        </button>
-                    </form>
+                    <ul class="small text-muted mb-3">
+                        <li>1km+ mesafeli girişler</li>
+                        <li>Personel ve mağaza</li>
+                        <li>Gerçek mesafe (km)</li>
+                        <li>Tarih bilgisi</li>
+                    </ul>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Özet Rapor -->
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-bar-chart text-info"></i>
-                        Günlük Özet
-                    </h5>
-                    <p class="card-text text-muted">
-                        Günlük fotoğraf yükleme ve doğrulama istatistikleri.
-                    </p>
-                    <form action="/{{ project }}/reports/daily" method="GET">
-                        <div class="mb-3">
-                            <label class="form-label">Ay Seçin</label>
-                            <input type="month" name="month" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-info text-white">
-                            <i class="bi bi-download"></i> Excel İndir
-                        </button>
-                    </form>
+                <div class="card-footer bg-transparent">
+                    <a href="/{{ project }}/reports/distance-alerts" class="btn btn-danger w-100">
+                        📥 CSV İndir
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-{% block extra_js %}
-<script>
-function downloadDuplicateReport() {
-    window.location.href = '/{{ project }}/reports/duplicates?format=xlsx';
-}
-</script>
-{% endblock %}
 {% endblock %}
