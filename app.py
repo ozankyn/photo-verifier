@@ -434,8 +434,16 @@ def api_verify(project):
             photo_type=data['photo_type'],
             status=data['status'],
             note=data.get('note', ''),
-            verified_by=data.get('verified_by', 'anonymous')
+            visit_id=data.get('visit_id')
         )
+        
+        # Log event
+        log_event(
+            action='Verify',
+            project=project,
+            details=f"PhotoId: {data['photo_id']}, Type: {data['photo_type']}, Status: {data['status']}"
+        )
+        
         return jsonify({'success': True, 'result': result})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -561,3 +569,38 @@ def profile():
                          error=error,
                          current_user=get_current_user(),
                          projects=PROJECTS)    
+
+@app.route('/admin/logs')
+@admin_required
+def event_logs():
+    """Event logları sayfası."""
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    offset = (page - 1) * per_page
+    
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    
+    # Toplam kayıt sayısı
+    cursor.execute('SELECT COUNT(*) as total FROM EventLogs')
+    total = cursor.fetchone()['total']
+    
+    # Logları getir
+    cursor.execute('''
+        SELECT Id, UserId, Username, Action, Project, Details, IpAddress, CreatedAt
+        FROM EventLogs
+        ORDER BY CreatedAt DESC
+        OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
+    ''', (offset, per_page))
+    logs = cursor.fetchall()
+    conn.close()
+    
+    total_pages = (total + per_page - 1) // per_page
+    
+    return render_template('admin_logs.html',
+                         logs=logs,
+                         page=page,
+                         total_pages=total_pages,
+                         total=total,
+                         current_user=get_current_user(),
+                         projects=PROJECTS)

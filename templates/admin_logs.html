@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Event Loglar - Photo Verifier{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>📋 Event Loglar</h4>
+        <span class="badge bg-secondary">Toplam: {{ total }} kayıt</span>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Kullanıcı</th>
+                            <th>İşlem</th>
+                            <th>Proje</th>
+                            <th>Detay</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <small>{{ log.CreatedAt.strftime('%d.%m.%Y %H:%M:%S') }}</small>
+                            </td>
+                            <td>
+                                {% if log.Username %}
+                                <strong>{{ log.Username }}</strong>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.Action == 'Login' %}
+                                <span class="badge bg-success">🔓 Giriş</span>
+                                {% elif log.Action == 'Logout' %}
+                                <span class="badge bg-secondary">🚪 Çıkış</span>
+                                {% elif log.Action == 'LoginFailed' %}
+                                <span class="badge bg-danger">❌ Başarısız Giriş</span>
+                                {% elif log.Action == 'PasswordChange' %}
+                                <span class="badge bg-warning">🔐 Şifre Değişikliği</span>
+                                {% elif log.Action == 'UserCreate' %}
+                                <span class="badge bg-info">👤 Kullanıcı Oluşturma</span>
+                                {% elif log.Action == 'UserEdit' %}
+                                <span class="badge bg-info">✏️ Kullanıcı Düzenleme</span>
+                                {% elif log.Action == 'Verify' %}
+                                <span class="badge bg-primary">✓ Doğrulama</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">{{ log.Action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.Project %}
+                                <span class="badge bg-dark">{{ log.Project }}</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ log.Details or '-' }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ log.IpAddress or '-' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page - 1 }}">← Önceki</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">Sayfa {{ page }} / {{ total_pages }}</span>
+                    </li>
+                    
+                    {% if page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page + 1 }}">Sonraki →</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="text-center mt-3">
+        <a href="/" class="btn btn-outline-secondary">← Ana Sayfa</a>
+    </div>
+</div>
+{% endblock %}
