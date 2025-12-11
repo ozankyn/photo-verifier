@@ -48,10 +48,26 @@
                             <p class="mb-1"><strong>🏪 Nokta:</strong> {{ file.customer_name or '-' }}</p>
                             <p class="mb-1"><strong>🔢 Kod:</strong> {{ file.customer_code or '-' }}</p>
                             <p class="mb-1"><strong>📅 Tarih:</strong> {{ file.photo_date | datetime if file.photo_date else '-' }}</p>
+                            {% if file.distance_km is not none %}
+                            <p class="mb-1">
+                                <strong>📍 Mesafe:</strong> 
+                                <span class="{% if file.distance_km > 1 %}text-danger fw-bold{% elif file.distance_km > 0.5 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ file.distance_km }} km
+                                </span>
+                                {% if file.distance_km > 1 %}⚠️{% endif %}
+                            </p>
+                            {% endif %}
                             <p class="mb-1 text-muted small">ID: {{ file.photo_id }} | Ziyaret: {{ file.visit_id }}</p>
-                            <a href="/{{ project }}/visit/{{ file.visit_id }}" class="btn btn-sm btn-outline-primary mt-2">
-                                Ziyareti Gör
-                            </a>
+                            <div class="d-flex gap-1 mt-2">
+                                <a href="/{{ project }}/visit/{{ file.visit_id }}" class="btn btn-sm btn-outline-primary">
+                                    Ziyareti Gör
+                                </a>
+                                {% if file.visit_lat and file.customer_lat %}
+                                <a href="https://www.google.com/maps/dir/{{ file.visit_lat }},{{ file.visit_lon }}/{{ file.customer_lat }},{{ file.customer_lon }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    🗺️ Harita
+                                </a>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>

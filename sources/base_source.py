@@ -54,6 +54,22 @@ class BaseSource:
         for old, new in replacements.items():
             text = text.replace(old, new)
         return text
+
+    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """İki koordinat arası kuş uçuşu mesafe (km) - Haversine formülü."""
+        import math
+        
+        R = 6371  # Dünya yarıçapı (km)
+        
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+        
+        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        return round(R * c, 2)    
     
     def _init_verify_db(self):
         """Doğrulama veritabanını oluşturur."""
@@ -604,6 +620,16 @@ class BaseSource:
                 # Ana DB'den personel ve müşteri bilgisi al
                 detail = self._get_photo_detail(photo_id, photo_type, visit_id)
                 
+                # Mesafe hesapla (km)
+                distance = None
+                visit_lat = detail.get('visit_lat')
+                visit_lon = detail.get('visit_lon')
+                customer_lat = detail.get('customer_lat')
+                customer_lon = detail.get('customer_lon')
+                
+                if all([visit_lat, visit_lon, customer_lat, customer_lon]):
+                    distance = self._calculate_distance(visit_lat, visit_lon, customer_lat, customer_lon)
+                
                 files.append({
                     'photo_id': photo_id,
                     'photo_type': photo_type,
@@ -614,6 +640,11 @@ class BaseSource:
                     'customer_name': detail.get('customer_name', ''),
                     'customer_code': detail.get('customer_code', ''),
                     'photo_date': detail.get('photo_date', ''),
+                    'visit_lat': visit_lat,
+                    'visit_lon': visit_lon,
+                    'customer_lat': customer_lat,
+                    'customer_lon': customer_lon,
+                    'distance_km': distance,
                 })
             
             duplicates.append({
@@ -637,7 +668,11 @@ class BaseSource:
                         e.CreatedDate as photo_date,
                         u.Name + ' ' + u.Surname as personnel,
                         c.CustomerName as customer_name,
-                        c.CustomerCode as customer_code
+                        c.CustomerCode as customer_code,
+                        v.Latitude as visit_lat,
+                        v.Longitude as visit_lon,
+                        c.Latitude as customer_lat,
+                        c.Longitude as customer_lon
                     FROM TeammateVisitExhibition e
                     INNER JOIN TeammateVisit v ON e.TeammateVisitId = v.Id
                     INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
@@ -651,7 +686,11 @@ class BaseSource:
                         p.CreatedDate as photo_date,
                         u.Name + ' ' + u.Surname as personnel,
                         c.CustomerName as customer_name,
-                        c.CustomerCode as customer_code
+                        c.CustomerCode as customer_code,
+                        v.Latitude as visit_lat,
+                        v.Longitude as visit_lon,
+                        c.Latitude as customer_lat,
+                        c.Longitude as customer_lon
                     FROM TeammateVisitPlanogram p
                     INNER JOIN TeammateVisit v ON p.TeammateVisitId = v.Id
                     INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
@@ -665,7 +704,11 @@ class BaseSource:
                         v.StartDate as photo_date,
                         u.Name + ' ' + u.Surname as personnel,
                         c.CustomerName as customer_name,
-                        c.CustomerCode as customer_code
+                        c.CustomerCode as customer_code,
+                        v.Latitude as visit_lat,
+                        v.Longitude as visit_lon,
+                        c.Latitude as customer_lat,
+                        c.Longitude as customer_lon
                     FROM TeammateVisit v
                     INNER JOIN TeammateRoute r ON v.TeammateRouteId = r.Id
                     INNER JOIN Customers c ON r.CustomerId = c.CustomerCode
