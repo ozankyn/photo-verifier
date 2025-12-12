@@ -303,20 +303,24 @@ class BaseSource:
         print(f"DEBUG get_photos_grouped: type={photo_type}, from={start_date}, to={end_date}, user={user_id}, customer={customer_code}")
         
         try:
-            if photo_type == 'exhibition':
-                photos = self.get_exhibition_photos(start_date, end_date, user_id, customer_code)
-            elif photo_type == 'planogram':
-                photos = self.get_planogram_photos(start_date, end_date, user_id, customer_code)
-            elif photo_type == 'visit':
-                photos = self.get_visit_photos(start_date=start_date, end_date=end_date, user_id=user_id, customer_code=customer_code)
+            # Filtre yoksa ve cache varsa, cache'den oku
+            if not user_id and not customer_code and self.has_photo_cache(photo_type, start_date, end_date):
+                print("DEBUG: Cache'den okunuyor...")
+                photos = self.get_photos_from_cache(photo_type, start_date, end_date)
             else:
-                print(f"DEBUG unknown photo_type: {photo_type}")
-                return []
+                # Canlı sorgu
+                print("DEBUG: Canlı sorgu yapılıyor...")
+                if photo_type == 'exhibition':
+                    photos = self.get_exhibition_photos(start_date, end_date, user_id, customer_code)
+                elif photo_type == 'planogram':
+                    photos = self.get_planogram_photos(start_date, end_date, user_id, customer_code)
+                elif photo_type == 'visit':
+                    photos = self.get_visit_photos(start_date=start_date, end_date=end_date, user_id=user_id, customer_code=customer_code)
+                else:
+                    print(f"DEBUG unknown photo_type: {photo_type}")
+                    return []
             
             print(f"DEBUG photos count: {len(photos)}")
-            if photos:
-                print(f"DEBUG first photo ImagePath: {photos[0].get('ImagePath', 'NO PATH')}")
-                print(f"DEBUG first photo ImageUrl: {photos[0].get('ImageUrl', 'NO URL')}")
         except Exception as e:
             print(f"DEBUG ERROR in get_photos_grouped: {e}")
             import traceback
@@ -326,7 +330,7 @@ class BaseSource:
         # Ziyarete göre grupla
         grouped = {}
         for photo in photos:
-            visit_id = photo['VisitId']
+            visit_id = photo.get('VisitId')
             if visit_id not in grouped:
                 grouped[visit_id] = {
                     'visit_id': visit_id,
@@ -340,7 +344,7 @@ class BaseSource:
         
         # Liste olarak döndür, tarihe göre sıralı
         result = list(grouped.values())
-        result.sort(key=lambda x: x['visit_date'] or '', reverse=True)
+        result.sort(key=lambda x: str(x['visit_date'] or ''), reverse=True)
         
         # Doğrulama bilgilerini ekle
         for group in result:
@@ -658,6 +662,51 @@ class BaseSource:
         except Exception as e:
             print(f"DEBUG get_duplicates_from_cache error: {e}")
             return []
+
+    def get_photos_from_cache(self, photo_type: str, start_date: str, end_date: str) -> List[Dict]:
+        """Önbellekten fotoğrafları getirir."""
+        try:
+            import json
+            conn = self._get_pv_connection()
+            cursor = conn.cursor(as_dict=True)
+            
+            cursor.execute('''
+                SELECT Details
+                FROM PhotoListCache
+                WHERE Project = %s AND PhotoType = %s 
+                AND CacheDate BETWEEN %s AND %s
+                ORDER BY CacheDate DESC
+            ''', (self.project_key, photo_type, start_date, end_date))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            photos = []
+            for row in results:
+                if row['Details']:
+                    day_photos = json.loads(row['Details'])
+                    photos.extend(day_photos)
+            
+            return photos
+        except Exception as e:
+            print(f"DEBUG get_photos_from_cache error: {e}")
+            return []
+
+    def has_photo_cache(self, photo_type: str, start_date: str, end_date: str) -> bool:
+        """Cache var mı kontrol eder."""
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) FROM PhotoListCache 
+                WHERE Project = %s AND PhotoType = %s
+                AND CacheDate BETWEEN %s AND %s
+            ''', (self.project_key, photo_type, start_date, end_date))
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+        except:
+            return False        
 
     def has_duplicate_cache(self) -> bool:
         """Cache var mı kontrol eder."""
