@@ -606,21 +606,6 @@ def event_logs():
                          projects=PROJECTS)
 
 
-@app.route('/<project>/reports')
-@login_required
-def reports(project):
-    """Raporlar sayfası."""
-    if project not in PROJECTS:
-        return "Proje bulunamadı", 404
-    
-    config = get_project_config(project)
-    
-    return render_template('reports.html',
-                         project=project,
-                         project_name=config['name'],
-                         projects=PROJECTS,
-                         current_user=get_current_user())
-
 @app.route('/<project>/reports/verifications')
 @login_required
 def report_verifications(project):
