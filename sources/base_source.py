@@ -346,11 +346,17 @@ class BaseSource:
         result = list(grouped.values())
         result.sort(key=lambda x: str(x['visit_date'] or ''), reverse=True)
         
-        # Doğrulama bilgilerini ekle
+        # Doğrulama bilgilerini TOPLU al
+        all_photo_ids = []
         for group in result:
             for photo in group['photos']:
-                verification = self.get_verification_status(photo['PhotoId'], photo_type)
-                photo['verification'] = verification
+                all_photo_ids.append(photo['PhotoId'])
+        
+        verifications = self.get_verification_statuses_bulk(all_photo_ids, photo_type)
+        
+        for group in result:
+            for photo in group['photos']:
+                photo['verification'] = verifications.get(photo['PhotoId'])
         
         print(f"DEBUG grouped visits count: {len(result)}")
         return result
@@ -425,6 +431,33 @@ class BaseSource:
         
         conn.close()
         return result
+    
+    def get_verification_statuses_bulk(self, photo_ids: List[int], photo_type: str) -> Dict[int, Dict]:
+        """Birden fazla fotoğrafın doğrulama durumunu toplu getirir."""
+        if not photo_ids:
+            return {}
+        
+        try:
+            conn = self._get_pv_connection()
+            cursor = conn.cursor(as_dict=True)
+            
+            # IN clause için placeholder oluştur
+            placeholders = ','.join(['%s'] * len(photo_ids))
+            
+            cursor.execute(f'''
+                SELECT PhotoId, Status as status, Note as note, VerifiedAt as verified_at
+                FROM Verifications
+                WHERE Project = %s AND PhotoType = %s AND PhotoId IN ({placeholders})
+            ''', (self.project_key, photo_type, *photo_ids))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            # Dict'e çevir
+            return {r['PhotoId']: r for r in results}
+        except Exception as e:
+            print(f"DEBUG get_verification_statuses_bulk error: {e}")
+            return {}
     
     # ==================== İSTATİSTİKLER ====================
     
