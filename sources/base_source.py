@@ -497,7 +497,7 @@ class BaseSource:
     
     # ==================== DOĞRULAMA ====================
     
-    def verify_photo(self, photo_id: int, photo_type: str, status: str, note: str = None, visit_id: int = None) -> bool:
+    def verify_photo(self, photo_id: int, photo_type: str, status: str, note: str = None, visit_id: int = None, verified_by: int = None) -> bool:
         """Fotoğraf doğrulama sonucunu kaydeder."""
         try:
             conn = self._get_pv_connection()
@@ -514,14 +514,14 @@ class BaseSource:
             if existing:
                 cursor.execute('''
                     UPDATE Verifications 
-                    SET Status = %s, Note = %s, VerifiedAt = GETDATE()
+                    SET Status = %s, Note = %s, VerifiedAt = GETDATE(), VerifiedBy = %s
                     WHERE Project = %s AND PhotoType = %s AND PhotoId = %s
-                ''', (status, note, self.project_key, photo_type, photo_id))
+                ''', (status, note, verified_by, self.project_key, photo_type, photo_id))
             else:
                 cursor.execute('''
-                    INSERT INTO Verifications (Project, PhotoType, PhotoId, VisitId, Status, Note)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                ''', (self.project_key, photo_type, photo_id, visit_id, status, note))
+                    INSERT INTO Verifications (Project, PhotoType, PhotoId, VisitId, Status, Note, VerifiedBy)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ''', (self.project_key, photo_type, photo_id, visit_id, status, note, verified_by))
             
             conn.commit()
             conn.close()

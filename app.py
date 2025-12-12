@@ -434,7 +434,8 @@ def api_verify(project):
             photo_type=data['photo_type'],
             status=data['status'],
             note=data.get('note', ''),
-            visit_id=data.get('visit_id')
+            visit_id=data.get('visit_id'),
+            verified_by=session.get('user_id')
         )
         
         # Log event
@@ -614,8 +615,10 @@ def report_verifications(project):
         return "Proje bulunamadı", 404
     
     from io import BytesIO
-    import csv
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
     
+    # Doğrulama verilerini al
     conn = get_pv_connection()
     cursor = conn.cursor(as_dict=True)
     cursor.execute('''
@@ -629,35 +632,57 @@ def report_verifications(project):
     verifications = cursor.fetchall()
     conn.close()
     
-    # CSV oluştur
-    output = BytesIO()
-    import codecs
-    output.write(codecs.BOM_UTF8)  # Excel için UTF-8 BOM
+    # Proje DB'sinden fotoğraf detaylarını al
+    source = get_source(project)
     
-    writer = csv.writer(codecs.getwriter('utf-8')(output))
-    writer.writerow(['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Durum', 'Yorum', 'Tarih', 'Kullanıcı', 'Ad Soyad'])
+    # Excel oluştur
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Doğrulama Raporu"
     
-    for v in verifications:
+    # Header
+    headers = ['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza Kodu', 'Mağaza Adı', 'Durum', 'Yorum', 'Doğrulayan', 'Doğrulama Tarihi']
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data
+    for row_num, v in enumerate(verifications, 2):
+        # Fotoğraf detaylarını al
+        detail = source._get_photo_detail(v['PhotoId'], v['PhotoType'], v['VisitId'])
+        
         status_text = {'approved': 'Onaylandı', 'rejected': 'Reddedildi', 'suspicious': 'Şüpheli'}.get(v['Status'], v['Status'])
-        writer.writerow([
-            v['PhotoId'],
-            v['PhotoType'],
-            v['VisitId'],
-            status_text,
-            v['Note'] or '',
-            v['VerifiedAt'].strftime('%d.%m.%Y %H:%M') if v['VerifiedAt'] else '',
-            v['Username'] or '',
-            v['DisplayName'] or ''
-        ])
+        
+        ws.cell(row=row_num, column=1, value=v['PhotoId'])
+        ws.cell(row=row_num, column=2, value=v['PhotoType'])
+        ws.cell(row=row_num, column=3, value=v['VisitId'])
+        ws.cell(row=row_num, column=4, value=detail.get('personnel', ''))
+        ws.cell(row=row_num, column=5, value=detail.get('customer_code', ''))
+        ws.cell(row=row_num, column=6, value=detail.get('customer_name', ''))
+        ws.cell(row=row_num, column=7, value=status_text)
+        ws.cell(row=row_num, column=8, value=v['Note'] or '')
+        ws.cell(row=row_num, column=9, value=v['DisplayName'] or v['Username'] or '')
+        ws.cell(row=row_num, column=10, value=v['VerifiedAt'].strftime('%d.%m.%Y %H:%M') if v['VerifiedAt'] else '')
     
+    # Kolon genişlikleri
+    column_widths = [12, 12, 12, 25, 15, 35, 15, 40, 20, 18]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+    
+    output = BytesIO()
+    wb.save(output)
     output.seek(0)
     
-    from flask import send_file
     return send_file(
         output,
-        mimetype='text/csv',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'{project}_dogrulama_raporu.csv'
+        download_name=f'{project}_dogrulama_raporu.xlsx'
     )
 
 @app.route('/<project>/reports/duplicates')
@@ -668,9 +693,11 @@ def report_duplicates(project):
         return "Proje bulunamadı", 404
     
     from io import BytesIO
-    import csv
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
     import json
     
+    # Duplicate verilerini al
     conn = get_pv_connection()
     cursor = conn.cursor(as_dict=True)
     cursor.execute('''
@@ -680,40 +707,84 @@ def report_duplicates(project):
         ORDER BY PhotoCount DESC
     ''', (project,))
     duplicates = cursor.fetchall()
+    
+    # Doğrulama durumlarını al
+    cursor.execute('''
+        SELECT PhotoId, PhotoType, Status, Note, VerifiedBy
+        FROM Verifications
+        WHERE Project = %s
+    ''', (project,))
+    verifications_list = cursor.fetchall()
+    
+    # Kullanıcı isimlerini al
+    cursor.execute('SELECT Id, DisplayName, Username FROM Users')
+    users_list = cursor.fetchall()
     conn.close()
     
-    # CSV oluştur
-    output = BytesIO()
-    import codecs
-    output.write(codecs.BOM_UTF8)
+    # Lookup dictionary'ler oluştur
+    verifications = {(v['PhotoId'], v['PhotoType']): v for v in verifications_list}
+    users = {u['Id']: u['DisplayName'] or u['Username'] for u in users_list}
     
-    writer = csv.writer(codecs.getwriter('utf-8')(output))
-    writer.writerow(['Hash', 'Adet', 'Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza', 'Mağaza Kodu', 'Tarih', 'Mesafe (km)'])
+    # Excel oluştur
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Duplicate Raporu"
     
+    # Header
+    headers = ['Hash', 'Tekrar', 'Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza Kodu', 'Mağaza Adı', 'Fotoğraf Tarihi', 'Mesafe (km)', 'Doğrulama', 'Yorum', 'Doğrulayan']
+    header_fill = PatternFill(start_color="C65911", end_color="C65911", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data
+    row_num = 2
     for dup in duplicates:
         files = json.loads(dup['Details']) if dup['Details'] else []
         for f in files:
-            writer.writerow([
-                dup['Md5Hash'],
-                dup['PhotoCount'],
-                f.get('photo_id', ''),
-                f.get('photo_type', ''),
-                f.get('visit_id', ''),
-                f.get('personnel', ''),
-                f.get('customer_name', ''),
-                f.get('customer_code', ''),
-                f.get('photo_date', ''),
-                f.get('distance_km', '')
-            ])
+            photo_id = f.get('photo_id')
+            photo_type = f.get('photo_type')
+            
+            # Doğrulama durumunu bul
+            verification = verifications.get((photo_id, photo_type), {})
+            status = verification.get('Status', '')
+            status_text = {'approved': 'Onaylandı', 'rejected': 'Reddedildi', 'suspicious': 'Şüpheli'}.get(status, '')
+            note = verification.get('Note', '')
+            verified_by = users.get(verification.get('VerifiedBy'), '')
+            
+            ws.cell(row=row_num, column=1, value=dup['Md5Hash'][:12] + '...')
+            ws.cell(row=row_num, column=2, value=dup['PhotoCount'])
+            ws.cell(row=row_num, column=3, value=photo_id)
+            ws.cell(row=row_num, column=4, value=photo_type)
+            ws.cell(row=row_num, column=5, value=f.get('visit_id', ''))
+            ws.cell(row=row_num, column=6, value=f.get('personnel', ''))
+            ws.cell(row=row_num, column=7, value=f.get('customer_code', ''))
+            ws.cell(row=row_num, column=8, value=f.get('customer_name', ''))
+            ws.cell(row=row_num, column=9, value=str(f.get('photo_date', ''))[:19] if f.get('photo_date') else '')
+            ws.cell(row=row_num, column=10, value=f.get('distance_km', ''))
+            ws.cell(row=row_num, column=11, value=status_text)
+            ws.cell(row=row_num, column=12, value=note)
+            ws.cell(row=row_num, column=13, value=verified_by)
+            row_num += 1
     
+    # Kolon genişlikleri
+    column_widths = [15, 8, 12, 12, 12, 25, 15, 35, 18, 12, 12, 30, 20]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+    
+    output = BytesIO()
+    wb.save(output)
     output.seek(0)
     
-    from flask import send_file
     return send_file(
         output,
-        mimetype='text/csv',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'{project}_duplicate_raporu.csv'
+        download_name=f'{project}_duplicate_raporu.xlsx'
     )
 
 @app.route('/<project>/reports/distance-alerts')
@@ -724,7 +795,8 @@ def report_distance_alerts(project):
         return "Proje bulunamadı", 404
     
     from io import BytesIO
-    import csv
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
     import json
     
     conn = get_pv_connection()
@@ -737,36 +809,51 @@ def report_distance_alerts(project):
     rows = cursor.fetchall()
     conn.close()
     
-    # CSV oluştur
-    output = BytesIO()
-    import codecs
-    output.write(codecs.BOM_UTF8)
+    # Excel oluştur
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Mesafe Uyarıları"
     
-    writer = csv.writer(codecs.getwriter('utf-8')(output))
-    writer.writerow(['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza', 'Mağaza Kodu', 'Tarih', 'Mesafe (km)'])
+    # Header
+    headers = ['Fotoğraf ID', 'Tür', 'Ziyaret ID', 'Personel', 'Mağaza Kodu', 'Mağaza Adı', 'Fotoğraf Tarihi', 'Mesafe (km)']
+    header_fill = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
     
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data
+    row_num = 2
     for row in rows:
         files = json.loads(row['Details']) if row['Details'] else []
         for f in files:
             distance = f.get('distance_km')
             if distance and distance > 1:
-                writer.writerow([
-                    f.get('photo_id', ''),
-                    f.get('photo_type', ''),
-                    f.get('visit_id', ''),
-                    f.get('personnel', ''),
-                    f.get('customer_name', ''),
-                    f.get('customer_code', ''),
-                    f.get('photo_date', ''),
-                    distance
-                ])
+                ws.cell(row=row_num, column=1, value=f.get('photo_id', ''))
+                ws.cell(row=row_num, column=2, value=f.get('photo_type', ''))
+                ws.cell(row=row_num, column=3, value=f.get('visit_id', ''))
+                ws.cell(row=row_num, column=4, value=f.get('personnel', ''))
+                ws.cell(row=row_num, column=5, value=f.get('customer_code', ''))
+                ws.cell(row=row_num, column=6, value=f.get('customer_name', ''))
+                ws.cell(row=row_num, column=7, value=str(f.get('photo_date', ''))[:19] if f.get('photo_date') else '')
+                ws.cell(row=row_num, column=8, value=distance)
+                row_num += 1
     
+    # Kolon genişlikleri
+    column_widths = [12, 12, 12, 25, 15, 35, 18, 12]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+    
+    output = BytesIO()
+    wb.save(output)
     output.seek(0)
     
-    from flask import send_file
     return send_file(
         output,
-        mimetype='text/csv',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'{project}_mesafe_uyari_raporu.csv'
+        download_name=f'{project}_mesafe_uyari_raporu.xlsx'
     )
