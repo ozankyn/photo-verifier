@@ -391,13 +391,44 @@ def duplicates(project):
         duplicate_groups = source.find_duplicates()
         from_cache = False
     
+    # Verification bilgilerini ekle
+    all_photo_ids = []
+    for group in duplicate_groups:
+        for file in group['files']:
+            all_photo_ids.append((file['photo_id'], file['photo_type']))
+    
+    # Toplu verification al
+    conn = get_pv_connection()
+    cursor = conn.cursor(as_dict=True)
+    
+    verifications = {}
+    if all_photo_ids:
+        for photo_id, photo_type in all_photo_ids:
+            cursor.execute('''
+                SELECT PhotoId, PhotoType, Status, Note FROM Verifications
+                WHERE Project = %s AND PhotoId = %s AND PhotoType = %s
+            ''', (project, photo_id, photo_type))
+            result = cursor.fetchone()
+            if result:
+                verifications[(result['PhotoId'], result['PhotoType'])] = {
+                    'status': result['Status'],
+                    'note': result['Note']
+                }
+    conn.close()
+    
+    # Verification'ları files'a ekle
+    for group in duplicate_groups:
+        for file in group['files']:
+            key = (file['photo_id'], file['photo_type'])
+            file['verification'] = verifications.get(key)
+    
     return render_template('duplicates.html',
                          project=project,
                          project_name=config['name'],
                          projects=PROJECTS,
                          duplicate_groups=duplicate_groups,
                          from_cache=from_cache,
-                            current_user=get_current_user())
+                         current_user=get_current_user())
 
 
 @app.route('/<project>/reports')

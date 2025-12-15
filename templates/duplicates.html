@@ -10,9 +10,9 @@
             <h2 class="mb-1">🔍 Duplicate Tespiti</h2>
             <p class="text-muted mb-0">{{ project_name }} - Aynı fotoğrafın farklı ziyaretlerde kullanımı</p>
         </div>
-        <button class="btn btn-primary" onclick="runDuplicateCheck()">
-            <i class="bi bi-arrow-clockwise"></i> Yeniden Tara
-        </button>
+        {% if from_cache %}
+        <span class="badge bg-info">📦 Cache'den yüklendi</span>
+        {% endif %}
     </div>
     
     {% if duplicate_groups %}
@@ -37,13 +37,14 @@
             <div class="row">
                 {% for file in group.files %}
                 <div class="col-md-4 mb-3">
-                    <div class="card h-100">
+                    <div class="card h-100 {% if file.verification %}border-2 {% if file.verification.status == 'approved' %}border-success{% elif file.verification.status == 'rejected' %}border-danger{% elif file.verification.status == 'suspicious' %}border-warning{% endif %}{% endif %}">
                         <img src="/image/{{ project }}/{{ file.image_url }}" 
                              class="card-img-top"
                              style="height: 200px; object-fit: cover;"
                              onclick="openImageModal(this.src)"
                              onerror="this.src='https://via.placeholder.com/300x200?text=Yüklenemedi'">
                         <div class="card-body">
+                            <p class="mb-1"><strong>📸 Tür:</strong> {{ file.photo_type or '-' }}</p>
                             <p class="mb-1"><strong>👤 Personel:</strong> {{ file.personnel or '-' }}</p>
                             <p class="mb-1"><strong>🏪 Nokta:</strong> {{ file.customer_name or '-' }}</p>
                             <p class="mb-1"><strong>🔢 Kod:</strong> {{ file.customer_code or '-' }}</p>
@@ -52,18 +53,50 @@
                             <p class="mb-1">
                                 <strong>📍 Mesafe:</strong> 
                                 <span class="{% if file.distance_km > 1 %}text-danger fw-bold{% elif file.distance_km > 0.5 %}text-warning{% else %}text-success{% endif %}">
-                                    {{ file.distance_km }} km
+                                    {{ "%.2f"|format(file.distance_km) }} km
                                 </span>
                                 {% if file.distance_km > 1 %}⚠️{% endif %}
                             </p>
                             {% endif %}
                             <p class="mb-1 text-muted small">ID: {{ file.photo_id }} | Ziyaret: {{ file.visit_id }}</p>
+                            
+                            <!-- Doğrulama Durumu -->
+                            {% if file.verification %}
+                            <div class="alert {% if file.verification.status == 'approved' %}alert-success{% elif file.verification.status == 'rejected' %}alert-danger{% else %}alert-warning{% endif %} py-1 px-2 mt-2 mb-2">
+                                <small>
+                                    <strong>
+                                        {% if file.verification.status == 'approved' %}✓ Farklı Açı{% elif file.verification.status == 'rejected' %}✗ Sahte{% else %}? Şüpheli{% endif %}
+                                    </strong>
+                                    {% if file.verification.note %}<br>{{ file.verification.note }}{% endif %}
+                                </small>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Butonlar -->
+                            <div class="btn-group w-100 mt-2" role="group">
+                                <button type="button" 
+                                        class="btn btn-sm {% if file.verification and file.verification.status == 'approved' %}btn-success{% else %}btn-outline-success{% endif %}"
+                                        onclick="verifyPhoto('{{ project }}', {{ file.photo_id }}, '{{ file.photo_type }}', {{ file.visit_id }}, 'approved', this)"
+                                        title="Farklı Açı">
+                                    ✓
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm {% if file.verification and file.verification.status == 'rejected' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                        onclick="verifyPhoto('{{ project }}', {{ file.photo_id }}, '{{ file.photo_type }}', {{ file.visit_id }}, 'rejected', this)"
+                                        title="Sahte Kayıt">
+                                    ✗
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm {% if file.verification and file.verification.status == 'suspicious' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                                        onclick="verifyPhoto('{{ project }}', {{ file.photo_id }}, '{{ file.photo_type }}', {{ file.visit_id }}, 'suspicious', this)"
+                                        title="Şüpheli">
+                                    ?
+                                </button>
+                            </div>
+                            
                             <div class="d-flex gap-1 mt-2">
-                                <a href="/{{ project }}/visit/{{ file.visit_id }}" class="btn btn-sm btn-outline-primary">
-                                    Ziyareti Gör
-                                </a>
                                 {% if file.visit_lat and file.customer_lat %}
-                                <a href="https://www.google.com/maps/dir/{{ file.visit_lat }},{{ file.visit_lon }}/{{ file.customer_lat }},{{ file.customer_lon }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <a href="https://www.google.com/maps/dir/{{ file.visit_lat }},{{ file.visit_lon }}/{{ file.customer_lat }},{{ file.customer_lon }}" target="_blank" class="btn btn-sm btn-outline-secondary flex-grow-1">
                                     🗺️ Harita
                                 </a>
                                 {% endif %}
@@ -72,19 +105,6 @@
                     </div>
                 </div>
                 {% endfor %}
-            </div>
-        </div>
-        <div class="card-footer">
-            <div class="d-flex gap-2">
-                <button class="btn btn-success btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'valid')">
-                    ✓ Geçerli (Farklı açılar)
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'fake')">
-                    ✗ Sahte Kayıt
-                </button>
-                <button class="btn btn-warning btn-sm" onclick="resolveDuplicate({{ loop.index }}, 'review')">
-                    ? İnceleme Gerekli
-                </button>
             </div>
         </div>
     </div>
@@ -97,28 +117,84 @@
             <h4 class="mt-3">Duplicate Bulunamadı</h4>
             <p class="text-muted">
                 Henüz hash taraması yapılmamış veya duplicate tespit edilmemiş.
-                <br>
-                Hash taraması için önce fotoğrafların işlenmesi gerekiyor.
             </p>
-            <button class="btn btn-primary mt-3" onclick="runDuplicateCheck()">
-                <i class="bi bi-play-circle"></i> Hash Taraması Başlat
-            </button>
         </div>
     </div>
     {% endif %}
 </div>
 
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-body p-0 text-center">
+                <img id="modalImage" src="" class="img-fluid" style="max-height: 90vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
 {% block extra_js %}
 <script>
-function runDuplicateCheck() {
-    alert('Hash taraması başlatılıyor... Bu işlem biraz zaman alabilir.');
-    // TODO: Backend'de hash tarama endpoint'i eklenecek
+function openImageModal(src) {
+    document.getElementById('modalImage').src = src;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
 }
 
-function resolveDuplicate(groupId, resolution) {
-    const note = prompt('Not eklemek ister misiniz?');
-    alert(`Grup #${groupId} "${resolution}" olarak işaretlendi.`);
-    // TODO: Backend'e kaydet
+function verifyPhoto(project, photoId, photoType, visitId, status, btn) {
+    const note = prompt('Not eklemek ister misiniz? (Opsiyonel)');
+    
+    fetch(`/api/${project}/verify`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            photo_id: photoId,
+            photo_type: photoType,
+            visit_id: visitId,
+            status: status,
+            note: note || ''
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Buton grubunu güncelle
+            const btnGroup = btn.closest('.btn-group');
+            btnGroup.querySelectorAll('button').forEach(b => {
+                b.classList.remove('btn-success', 'btn-danger', 'btn-warning');
+                b.classList.add('btn-outline-success', 'btn-outline-danger', 'btn-outline-warning');
+            });
+            
+            // Seçili butonu işaretle
+            btn.classList.remove('btn-outline-success', 'btn-outline-danger', 'btn-outline-warning');
+            if (status === 'approved') {
+                btn.classList.add('btn-success');
+            } else if (status === 'rejected') {
+                btn.classList.add('btn-danger');
+            } else {
+                btn.classList.add('btn-warning');
+            }
+            
+            // Kartın border'ını güncelle
+            const card = btn.closest('.card');
+            card.classList.remove('border-success', 'border-danger', 'border-warning');
+            card.classList.add('border-2');
+            if (status === 'approved') {
+                card.classList.add('border-success');
+            } else if (status === 'rejected') {
+                card.classList.add('border-danger');
+            } else {
+                card.classList.add('border-warning');
+            }
+        } else {
+            alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+        }
+    })
+    .catch(error => {
+        alert('Bağlantı hatası: ' + error.message);
+    });
 }
 </script>
 {% endblock %}
