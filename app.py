@@ -550,13 +550,7 @@ def format_date(value, format='%d.%m.%Y'):
     return value.strftime(format)
 
 
-if __name__ == '__main__':
-    print("=" * 50)
-    print("📸 Photo Verifier - Fotoğraf Doğrulama Sistemi")
-    print("=" * 50)
-    print("http://localhost:5555")
-    print("=" * 50)
-    app.run(host='0.0.0.0', port=5555, debug=True)
+
 
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -888,3 +882,12 @@ def report_distance_alerts(project):
         as_attachment=True,
         download_name=f'{project}_mesafe_uyari_raporu.xlsx'
     )
+
+
+if __name__ == '__main__':
+    print("=" * 50)
+    print("📸 Photo Verifier - Fotoğraf Doğrulama Sistemi")
+    print("=" * 50)
+    print("http://localhost:5555")
+    print("=" * 50)
+    app.run(host='0.0.0.0', port=5555, debug=True)
