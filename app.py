@@ -312,8 +312,15 @@ def photos(project):
     
     # Filtreler
     photo_type = request.args.get('type', 'exhibition')
-    date_from = request.args.get('from', (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'))
-    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    days = request.args.get('days', 7, type=int)
+    
+    if days > 0:
+        date_from = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        date_to = datetime.now().strftime('%Y-%m-%d')
+    else:
+        date_from = request.args.get('from', (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'))
+        date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    
     user_id = request.args.get('user_id', type=int)
     customer_code = request.args.get('customer_code')
     
@@ -342,36 +349,12 @@ def photos(project):
                          photos_grouped=photos_grouped,
                          date_from=date_from,
                          date_to=date_to,
+                         days=days,
                          user_id=user_id,
                          customer_code=customer_code,
                          personnel_list=personnel_list,
                          customer_list=customer_list,
-                            current_user=get_current_user())
-                        
-                    
-
-
-@app.route('/<project>/visit/<int:visit_id>')
-@login_required
-def visit_detail(project, visit_id):
-    """Tek bir ziyaretin tüm fotoğrafları."""
-    if project not in PROJECTS:
-        return "Proje bulunamadı", 404
-    
-    config = get_project_config(project)
-    source = get_source(project)
-    
-    try:
-        visit_data = source.get_visit_photos(visit_id)
-    except Exception as e:
-        visit_data = {'error': str(e)}
-    
-    return render_template('visit_detail.html',
-                         project=project,
-                         project_name=config['name'],
-                         projects=PROJECTS,
-                         visit=visit_data,
-                            current_user=get_current_user())
+                         current_user=get_current_user())
 
 @app.route('/<project>/duplicates')
 @login_required

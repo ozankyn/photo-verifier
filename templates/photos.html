@@ -15,29 +15,37 @@
             </h2>
             <p class="text-muted mb-0">{{ project_name }}</p>
         </div>
+        <span class="badge bg-secondary">{{ photos_grouped|length }} ziyaret</span>
     </div>
     
     <!-- Filtreler -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="GET" class="row g-3 align-items-end">
+            <form method="GET" class="row g-3 align-items-end" id="filterForm">
                 <div class="col-md-2">
                     <label class="form-label">Fotoğraf Türü</label>
-                    <select name="type" class="form-select form-select-sm">
+                    <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
                         {% for pt in photo_types %}
                         <option value="{{ pt }}" {% if pt == photo_type %}selected{% endif %}>
-                            {% if pt == 'exhibition' %}📦 Teşhir{% endif %}
-                            {% if pt == 'planogram' %}📊 Planogram{% endif %}
-                            {% if pt == 'visit' %}📸 Ziyaret{% endif %}
+                            {% if pt == 'exhibition' %}📦 Teşhir{% elif pt == 'planogram' %}📊 Planogram{% else %}📸 Ziyaret{% endif %}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label">📅 Tarih Aralığı</label>
+                    <select name="days" class="form-select form-select-sm" onchange="updateDates(this.value)">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>Son 7 gün</option>
+                        <option value="14" {% if days == 14 %}selected{% endif %}>Son 14 gün</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Son 30 gün</option>
+                        <option value="0" {% if days == 0 %}selected{% endif %}>Özel Tarih</option>
+                    </select>
+                </div>
+                <div class="col-md-2 custom-date-fields" style="{% if days != 0 %}display:none;{% endif %}">
                     <label class="form-label">Başlangıç</label>
                     <input type="date" name="from" class="form-control form-control-sm" value="{{ date_from }}">
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 custom-date-fields" style="{% if days != 0 %}display:none;{% endif %}">
                     <label class="form-label">Bitiş</label>
                     <input type="date" name="to" class="form-control form-control-sm" value="{{ date_to }}">
                 </div>
@@ -46,7 +54,7 @@
                     <select name="user_id" class="form-select form-select-sm">
                         <option value="">Tümü</option>
                         {% for p in personnel_list %}
-                        <option value="{{ p.Id }}" {% if user_id == p.Id %}selected{% endif %}>{{ p.FullName }}</option>
+                        <option value="{{ p.Id }}" {% if user_id|string == p.Id|string %}selected{% endif %}>{{ p.FullName }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -59,12 +67,12 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary btn-sm">
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
                         <i class="bi bi-search"></i> Filtrele
                     </button>
                     <a href="/{{ project }}/photos?type={{ photo_type }}" class="btn btn-outline-secondary btn-sm">
-                        Temizle
+                        <i class="bi bi-arrow-clockwise"></i>
                     </a>
                 </div>
             </form>
@@ -159,4 +167,64 @@
         </div>
     {% endif %}
 </div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-body p-0 text-center">
+                <img id="modalImage" src="" class="img-fluid" style="max-height: 90vh;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateDates(value) {
+    const customFields = document.querySelectorAll('.custom-date-fields');
+    if (value === '0') {
+        customFields.forEach(f => f.style.display = 'block');
+    } else {
+        customFields.forEach(f => f.style.display = 'none');
+        document.getElementById('filterForm').submit();
+    }
+}
+
+function openImageModal(src) {
+    document.getElementById('modalImage').src = src;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+
+function verifyPhoto(project, photoId, photoType, status) {
+    const noteEl = document.getElementById('note-' + photoId);
+    const note = noteEl ? noteEl.value : '';
+    
+    fetch(`/api/${project}/verify`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            photo_id: photoId,
+            photo_type: photoType,
+            status: status,
+            note: note
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Sayfayı yenile
+            location.reload();
+        } else {
+            alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+        }
+    })
+    .catch(error => {
+        alert('Bağlantı hatası: ' + error.message);
+    });
+}
+</script>
 {% endblock %}
