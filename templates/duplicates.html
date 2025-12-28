@@ -46,7 +46,7 @@
                         <select name="personnel" class="form-select form-select-sm select2-personnel">
                             <option value="">Tümü</option>
                             {% for p in personnel_list %}
-                            <option value="{{ p.name }}" {% if filters.personnel == p.name %}selected{% endif %}>{{ p.name }}</option>
+                            <option value="{{ p.FullName }}" {% if filters.personnel == p.FullName %}selected{% endif %}>{{ p.FullName }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -57,7 +57,7 @@
                         <select name="customer" class="form-select form-select-sm select2-customer">
                             <option value="">Tümü</option>
                             {% for c in customer_list %}
-                            <option value="{{ c.code }}" {% if filters.customer == c.code %}selected{% endif %}>{{ c.code }} - {{ c.name }}</option>
+                            <option value="{{ c.CustomerCode }}" {% if filters.customer == c.CustomerCode|string %}selected{% endif %}>{{ c.CustomerCode }} - {{ c.CustomerName }}</option>
                             {% endfor %}
                         </select>
                     </div>
