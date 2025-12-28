@@ -80,6 +80,19 @@ PHOTO_TYPE_CONFIG = {
     },
 }
 
+EMAIL_CONFIG = {
+    'smtp_server': 'mail.teamguerillamarketing.com',  # veya smtp.gmail.com
+    'smtp_port': 587,
+    'sender_email': 'bs@teamguerillamarketing.com',  # Gönderen e-posta
+    'sender_password': '1qazxsW2!!',  # Uygulama şifresi
+    'recipients': [
+        'ozankayan@teamguerilla.com',
+        'hakanalpan@teamguerilla.com',
+        'fatihkayan@teamguerilla.com'
+        # Diğer alıcılar...
+    ],
+}    
+
 
 def get_project_config(project_key):
     """Proje konfigürasyonunu döndürür."""
@@ -99,3 +112,5 @@ def get_db_connection_string(project_key):
     """Proje için bağlantı string'i döndürür."""
     config = get_project_config(project_key)
     return config['db']
+    
+    

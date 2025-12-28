@@ -62,10 +62,34 @@ def get_weekly_stats():
         ''', (project_key,))
         duplicate_count = cursor.fetchone()['count']
         
+        # Toplam fotoğraf sayısı (PhotoHashes tablosundan, son 7 gün)
+        cursor.execute('''
+            SELECT COUNT(*) as count FROM PhotoHashes 
+            WHERE Project = %s AND CreatedAt >= %s
+        ''', (project_key, start_date))
+        total_photos = cursor.fetchone()['count']
+        
+        # Değerlendirilen fotoğraf sayısı (son 7 gün)
+        cursor.execute('''
+            SELECT COUNT(*) as count FROM Verifications 
+            WHERE Project = %s AND VerifiedAt >= %s
+        ''', (project_key, start_date))
+        verified_photos = cursor.fetchone()['count']
+        
+        # İncelenmemiş fotoğraf sayısı
+        unverified_photos = total_photos - verified_photos if total_photos > verified_photos else 0
+        
+        # Yüzde hesapla
+        verified_percent = round((verified_photos / total_photos * 100), 1) if total_photos > 0 else 0
+        
         report['projects'][project_key] = {
             'name': PROJECTS[project_key]['name'],
             'verifications': stats,
             'duplicate_groups': duplicate_count,
+            'total_photos': total_photos,
+            'verified_photos': verified_photos,
+            'unverified_photos': unverified_photos,
+            'verified_percent': verified_percent,
         }
     
     # 2. Kullanıcı bazlı aksiyonlar
@@ -148,23 +172,30 @@ def generate_html_report(report):
         <table>
             <tr>
                 <th>Proje</th>
-                <th>✅ Onaylanan</th>
-                <th>❌ Reddedilen</th>
+                <th>📷 Toplam Fotoğraf</th>
+                <th>✅ Değerlendirilen</th>
+                <th>⏳ Bekleyen</th>
+                <th>📈 Oran</th>
+                <th>👍 Onay</th>
+                <th>👎 Red</th>
                 <th>❓ Şüpheli</th>
-                <th>📋 Toplam İşlem</th>
-                <th>🔍 Duplicate Grup</th>
+                <th>🔍 Duplicate</th>
             </tr>
     """
     
     for project_key, data in report['projects'].items():
         v = data['verifications']
+        percent_color = '#27ae60' if data['verified_percent'] >= 80 else '#f39c12' if data['verified_percent'] >= 50 else '#e74c3c'
         html += f"""
             <tr>
                 <td><strong>{data['name']}</strong></td>
+                <td>{data['total_photos']}</td>
+                <td>{data['verified_photos']}</td>
+                <td>{data['unverified_photos']}</td>
+                <td style="color: {percent_color}; font-weight: bold;">%{data['verified_percent']}</td>
                 <td class="stat-approved">{v['approved']}</td>
                 <td class="stat-rejected">{v['rejected']}</td>
                 <td class="stat-suspicious">{v['suspicious']}</td>
-                <td>{v['total']}</td>
                 <td>{data['duplicate_groups']}</td>
             </tr>
         """
