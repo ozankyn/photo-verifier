@@ -2,6 +2,15 @@
 
 {% block title %}{{ project_name }} - Duplicate Tespiti{% endblock %}
 
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    .select2-container { width: 100% !important; }
+    .filter-card { background: #f8f9fa; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
@@ -13,6 +22,79 @@
         {% if from_cache %}
         <span class="badge bg-info">📦 Cache'den yüklendi</span>
         {% endif %}
+    </div>
+    
+    <!-- Filtreler -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <form method="GET" id="filterForm">
+                <div class="row g-3">
+                    <!-- Tarih -->
+                    <div class="col-md-2">
+                        <label class="form-label small">📅 Tarih Aralığı</label>
+                        <select name="days" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="7" {% if filters.days == 7 %}selected{% endif %}>Son 7 gün</option>
+                            <option value="30" {% if filters.days == 30 %}selected{% endif %}>Son 30 gün</option>
+                            <option value="90" {% if filters.days == 90 %}selected{% endif %}>Son 90 gün</option>
+                            <option value="365" {% if filters.days == 365 %}selected{% endif %}>Son 1 yıl</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Personel -->
+                    <div class="col-md-3">
+                        <label class="form-label small">👤 Personel</label>
+                        <select name="personnel" class="form-select form-select-sm select2-personnel">
+                            <option value="">Tümü</option>
+                            {% for p in personnel_list %}
+                            <option value="{{ p.name }}" {% if filters.personnel == p.name %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Mağaza -->
+                    <div class="col-md-3">
+                        <label class="form-label small">🏪 Mağaza</label>
+                        <select name="customer" class="form-select form-select-sm select2-customer">
+                            <option value="">Tümü</option>
+                            {% for c in customer_list %}
+                            <option value="{{ c.code }}" {% if filters.customer == c.code %}selected{% endif %}>{{ c.code }} - {{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Durum -->
+                    <div class="col-md-2">
+                        <label class="form-label small">✅ Durum</label>
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" {% if not filters.status %}selected{% endif %}>Tümü</option>
+                            <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>⏳ Bekleyenler</option>
+                            <option value="approved" {% if filters.status == 'approved' %}selected{% endif %}>✓ Onaylananlar</option>
+                            <option value="rejected" {% if filters.status == 'rejected' %}selected{% endif %}>✗ Reddedilenler</option>
+                            <option value="suspicious" {% if filters.status == 'suspicious' %}selected{% endif %}>? Şüpheliler</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Mesafe -->
+                    <div class="col-md-2">
+                        <label class="form-label small">📍 Mesafe</label>
+                        <select name="distance" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" {% if not filters.distance %}selected{% endif %}>Tümü</option>
+                            <option value="far" {% if filters.distance == 'far' %}selected{% endif %}>⚠️ 1km+ Şüpheli</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm">🔍 Filtrele</button>
+                        <a href="/{{ project }}/duplicates" class="btn btn-outline-secondary btn-sm">🔄 Sıfırla</a>
+                        <span class="ms-auto text-muted small align-self-center">
+                            {{ duplicate_groups | length }} grup bulundu
+                        </span>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
     
     {% if duplicate_groups %}
@@ -116,7 +198,7 @@
             <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
             <h4 class="mt-3">Duplicate Bulunamadı</h4>
             <p class="text-muted">
-                Henüz hash taraması yapılmamış veya duplicate tespit edilmemiş.
+                Seçili filtrelere uygun duplicate kaydı bulunamadı.
             </p>
         </div>
     </div>
@@ -133,9 +215,30 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+$(document).ready(function() {
+    $('.select2-personnel').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Personel ara...',
+        allowClear: true
+    });
+    
+    $('.select2-customer').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Mağaza ara...',
+        allowClear: true
+    });
+    
+    // Select2 değiştiğinde formu gönder
+    $('.select2-personnel, .select2-customer').on('change', function() {
+        $('#filterForm').submit();
+    });
+});
+
 function openImageModal(src) {
     document.getElementById('modalImage').src = src;
     new bootstrap.Modal(document.getElementById('imageModal')).show();
@@ -197,5 +300,4 @@ function verifyPhoto(project, photoId, photoType, visitId, status, btn) {
     });
 }
 </script>
-{% endblock %}
 {% endblock %}

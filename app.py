@@ -383,6 +383,19 @@ def duplicates(project):
     config = get_project_config(project)
     source = get_source(project)
     
+    # Filtre parametreleri
+    days = request.args.get('days', 30, type=int)
+    personnel = request.args.get('personnel', '')
+    customer = request.args.get('customer', '')
+    status_filter = request.args.get('status', '')  # '', 'pending', 'approved', 'rejected', 'suspicious'
+    distance_filter = request.args.get('distance', '')  # '', 'far' (1km+)
+    
+    # Personel ve müşteri listelerini al (combo search için)
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+    personnel_list = source.get_personnel_list(start_date, end_date)
+    customer_list = source.get_customer_list(start_date, end_date)
+    
     # Önce cache'den dene (hızlı), yoksa canlı hesapla
     if source.has_duplicate_cache():
         duplicate_groups = source.get_duplicates_from_cache()
@@ -422,13 +435,74 @@ def duplicates(project):
             key = (file['photo_id'], file['photo_type'])
             file['verification'] = verifications.get(key)
     
+    # Filtreleri uygula
+    filtered_groups = []
+    for group in duplicate_groups:
+        filtered_files = []
+        for file in group['files']:
+            # Tarih filtresi
+            photo_date = file.get('photo_date')
+            if photo_date:
+                if isinstance(photo_date, str):
+                    try:
+                        photo_date = datetime.fromisoformat(photo_date.replace('Z', '+00:00'))
+                    except:
+                        photo_date = None
+                if photo_date:
+                    days_ago = (datetime.now() - photo_date.replace(tzinfo=None)).days
+                    if days_ago > days:
+                        continue
+            
+            # Personel filtresi
+            if personnel and personnel.lower() not in (file.get('personnel') or '').lower():
+                continue
+            
+            # Müşteri filtresi
+            if customer and customer.lower() not in (file.get('customer_name') or '').lower() and customer.lower() not in (file.get('customer_code') or '').lower():
+                continue
+            
+            # Durum filtresi
+            verification = file.get('verification')
+            if status_filter == 'pending' and verification:
+                continue
+            if status_filter == 'approved' and (not verification or verification.get('status') != 'approved'):
+                continue
+            if status_filter == 'rejected' and (not verification or verification.get('status') != 'rejected'):
+                continue
+            if status_filter == 'suspicious' and (not verification or verification.get('status') != 'suspicious'):
+                continue
+            
+            # Mesafe filtresi
+            if distance_filter == 'far':
+                distance_km = file.get('distance_km')
+                if not distance_km or distance_km < 1:
+                    continue
+            
+            filtered_files.append(file)
+        
+        if len(filtered_files) > 1:  # En az 2 dosya olmalı duplicate sayılması için
+            filtered_groups.append({
+                'hash': group['hash'],
+                'count': len(filtered_files),
+                'files': filtered_files
+            })
+    
     return render_template('duplicates.html',
                          project=project,
                          project_name=config['name'],
                          projects=PROJECTS,
-                         duplicate_groups=duplicate_groups,
+                         duplicate_groups=filtered_groups,
                          from_cache=from_cache,
-                         current_user=get_current_user())
+                         current_user=get_current_user(),
+                         personnel_list=personnel_list,
+                         customer_list=customer_list,
+                         filters={
+                             'days': days,
+                             'personnel': personnel,
+                             'customer': customer,
+                             'status': status_filter,
+                             'distance': distance_filter
+                         })
 
 
 @app.route('/<project>/reports')
